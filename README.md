@@ -2,7 +2,7 @@
 
 **A production-grade, Django-powered AI assistant platform** featuring intelligent multi-model routing, voice capabilities, RAG analytics, and enterprise-grade security.
 
-Baymax (the core AI dispatcher) intelligently routes requests across **3-tier model fallback** (Gemini → OpenRouter → Groq) ensuring **99.9% uptime** with encrypted API key management and persistent chat history.
+Baymax (the core AI dispatcher) intelligently routes requests across **3-tier model fallback** (Gemini → OpenRouter → Groq) ensuring **99.9% uptime** with encrypted API key management and persistent chat sessions.
 
 ---
 
@@ -99,6 +99,137 @@ python manage.py runserver
 ```
 
 Visit `http://localhost:8000`
+
+---
+
+## 🧩 Heros API (Developer API)
+
+Heros exposes a developer-friendly OpenAI-compatible API that routes requests through the Baymax engine. The primary inference endpoint is `POST /api/v1/chat/completions` and uses a Bearer token generated from the Heros platform dashboard.
+
+### Authentication
+
+Include your developer API key in the request header:
+
+```http
+Authorization: Bearer YOUR_DEVELOPER_API_KEY
+```
+
+The key must have `full` scope to call chat completions, and `read` scope to read usage/model metadata.
+
+### Available Endpoints
+
+#### 1) List Models
+
+```http
+GET /api/v1/models
+```
+
+Example response:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "baymax-4.5",
+      "object": "model",
+      "owned_by": "heros-ai",
+      "root": "baymax-4.5",
+      "parent": null
+    }
+  ]
+}
+```
+
+#### 2) Chat Completions
+
+```http
+POST /api/v1/chat/completions
+```
+
+Request body:
+
+```json
+{
+  "model": "baymax-4.5",
+  "messages": [
+    {"role": "user", "content": "Explain how Heros chooses the best model for a request."}
+  ],
+  "type": "text",
+  "search": false,
+  "stream": false
+}
+```
+
+Example success response:
+
+```json
+{
+  "id": "chatcmpl-1727859223",
+  "object": "chat.completion",
+  "created": 1727859223,
+  "model": "baymax-4.5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Heros routes requests by analyzing intent, task type, and provider availability..."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 26,
+    "completion_tokens": 42,
+    "total_tokens": 68
+  }
+}
+```
+
+#### 3) Usage & Quota
+
+```http
+GET /api/v1/usage
+```
+
+Returns today’s request count, token consumption, and remaining quota for the authenticated developer key.
+
+### Behavior Notes
+
+- `model` accepts `baymax-4.5` or `baymax`
+- `type` can be values such as `text`, `coding`, or `voice`
+- `search` enables web-aware routing when appropriate
+- `stream=true` returns Server-Sent Events in OpenAI-style chat completion chunks
+- If the user has configured Gemini/OpenRouter/Groq keys in their Heros profile, Baymax can use them as fallback providers automatically
+
+### Example with cURL
+
+```bash
+curl -X POST http://localhost:8000/api/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_DEVELOPER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "baymax-4.5",
+    "messages": [{"role": "user", "content": "Write a Python function to sort a list of dicts by a key."}],
+    "type": "coding",
+    "search": false,
+    "stream": false
+  }'
+```
+
+### App-Level Authentication Endpoints
+
+The platform also includes user-facing auth and session endpoints, including:
+
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/check-session`
+- `POST /api/chat`
+- `GET /api/chat/history`
+
+These are used for the main Heros web experience and session management.
 
 ---
 
@@ -320,7 +451,7 @@ Tests cover:
 
 ---
 
-## 📝 License
+## ��� License
 
 MIT License — see `LICENSE` file for details
 
