@@ -62,6 +62,8 @@ The robot **never changes the live site by itself**. You approve every change by
 
 Not in `llm_models.json` on purpose: the Infinsight **embedding** models (`infinsight/Embedding.py`). Changing them means re-indexing every uploaded file in Pinecone.
 
+**Don't put model names in `.env`.** Old model-list variables (`Gemini_Flow_1`, `Openrouter_Flow_1`, `Groq_Flow_1`, `Fast_openr`, `Fast_groq`) are **not used by any code**. `.env` is only for keys and passwords. The robot can't update `.env` on the server, so model lists there would silently go out of date.
+
 ---
 
 ## How a replacement is chosen
@@ -102,7 +104,7 @@ GitHub repo **Hudsonmathew1910/Heros** → **Settings**:
 
 - **Secrets and variables → Actions:** one key per provider
   - `GEMINI_API_KEY` (from `.env` `Gemini_K1`)
-  - `GROQ_API_KEY` (from `.env` `Groq_2`; `Groq_1`, `Fast_groq` and `Groq_Flow_1` were rejected by Groq)
+  - `GROQ_API_KEY` (from `.env` `Groq_2`; `Groq_1` was rejected by Groq)
   - `OPENROUTER_API_KEY` (from `.env` `Openrouter_k1`)
   - `HF_TOKEN` (needs the **"Make calls to Inference Providers"** permission)
 - **Actions → General → Workflow permissions:** **Read and write** + **Allow GitHub Actions to create and approve pull requests**

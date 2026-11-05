@@ -20,8 +20,8 @@ TIMEOUT = 20
 
 # Env var names checked for each provider's key, in order.
 KEY_ENV = {
-    "gemini": ["GEMINI_API_KEY", "Gemini_K1", "Gemini_K2", "Gemini_Flow_1"],
-    "groq": ["GROQ_API_KEY", "Groq_1", "Groq_2", "Fast_groq", "Groq_Flow_1"],
+    "gemini": ["GEMINI_API_KEY", "Gemini_K1", "Gemini_K2"],
+    "groq": ["GROQ_API_KEY", "Groq_1", "Groq_2"],
     "openrouter": ["OPENROUTER_API_KEY", "Openrouter_k1"],
     "huggingface": ["HF_TOKEN", "HF_TOKEN_1", "HF_TOKEN_2", "HF_TOKEN_3"],
 }
