@@ -4,6 +4,7 @@ import time
 import re
 import logging
 from django.core.exceptions import ImproperlyConfigured
+from backend import llm_registry
 from huggingface_hub import InferenceClient
 from huggingface_hub.errors import (
     BadRequestError,
@@ -21,18 +22,11 @@ class Halo:
     Includes fallbacks for high availability and robust smart output parsing.
     """
 
-    MODELS = {
-        "text_chat": "meta-llama/Llama-3.3-70B-Instruct",
-        "coding": "Qwen/Qwen2.5-Coder-32B-Instruct",
-        "voice": "mistralai/Mistral-Nemo-Instruct-2407",
-        "websearch": "CohereForAI/c4ai-command-r-plus",
-        "default": "meta-llama/Llama-3.3-70B-Instruct"
-    }
-    
-    PRIMARY_MODEL = "meta-llama/Llama-3.3-70B-Instruct"
-    
-    # Universal Fallback model in case the task-specific model fails
-    FALLBACK_MODEL = "mistralai/Mistral-Nemo-Instruct-2407"
+    # All model names live in backend/llm_models.json (huggingface section)
+    MODELS = llm_registry.get("huggingface", "halo_tasks")
+    PRIMARY_MODEL = MODELS["default"]
+    FALLBACK_MODEL = llm_registry.get("huggingface", "halo_fallback")
+    SEARCH_CHECK_MODEL = llm_registry.get("huggingface", "halo_search_check")
 
     # Default model parameters
     DEFAULT_TEMPERATURE = 0.7
@@ -464,7 +458,7 @@ class Halo:
                 {"role": "user", "content": user_text}
             ]
             response = client.chat_completion(
-                model="meta-llama/Llama-3.2-3B-Instruct",
+                model=self.SEARCH_CHECK_MODEL,
                 messages=messages,
                 max_tokens=50,
                 temperature=0.0

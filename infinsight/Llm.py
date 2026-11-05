@@ -2,26 +2,33 @@
 infinsight/services/llm.py
 ---------------------------
 Gemini LLM integration for the Infinsight analyst.
-Primary: gemini-3.6-flash
-Fallback: gemini-3.5-flash, gemini-3.5-flash-lite, gemini-3.1-flash-lite, gemini-2.5-flash
+Models: see backend/llm_models.json (gemini.infinsight / gemini.infinsight_fast)
 """
 
 import logging
 import time
 import traceback
 from backend.hero_model import Baymax
+from backend import llm_registry
 
 logger = logging.getLogger("infinsight.llm")
 
-GEMINI_MODELS = [
-    "models/gemini-3.6-flash",         # Primary (Best)
-    "models/gemini-3.5-flash",         # Fallback 1
-    "models/gemini-3.5-flash-lite",    # Fallback 2
-    "models/gemini-3.1-flash-lite",    # Fallback 3
-    "models/gemini-2.5-flash",         # Fallback 4
-    "models/gemini-2.5-flash-lite",    # Fallback 5
-    "models/gemini-1.5-flash",         # Fallback 6
-]
+# All model names live in backend/llm_models.json (gemini section)
+GEMINI_MODELS = ["models/" + m for m in llm_registry.get("gemini", "infinsight")]
+
+# Used when a guest is on the server's free key: fast, cheap models first.
+GEMINI_MODELS_FAST = ["models/" + m for m in llm_registry.get("gemini", "infinsight_fast")]
+
+
+def _models_for(api_key: str) -> list:
+    try:
+        from .guest import get_server_free_key
+        if api_key and api_key == get_server_free_key():
+            return GEMINI_MODELS_FAST
+    except Exception:
+        pass
+    return GEMINI_MODELS
+
 
 ANALYST_SYSTEM_PROMPT = """You are **Infinsight**, the advanced AI Data Analyst for Hero AI.
 Your goal is to provide deep, actionable insights from datasets using real-time computation.
@@ -113,7 +120,8 @@ def generate_analyst_response(
     from google import genai
     client = genai.Client(api_key=gemini_api_key)
 
-    for model in GEMINI_MODELS:
+    models = _models_for(gemini_api_key)
+    for model in models:
         try:
             t_llm = time.time()
             response = client.models.generate_content(
@@ -133,7 +141,7 @@ def generate_analyst_response(
         except Exception as e:
             print(f"--- [INF] Model {model} failed. Details: {str(e)} ---")
             logger.warning(f"Model {model} failed: {e}")
-            if model == GEMINI_MODELS[-1]:
+            if model == models[-1]:
                  return "Something wrong please try again later", "error"
 
     return "Something wrong please try again later", "none"
@@ -183,7 +191,8 @@ INSTRUCTIONS:
         from google import genai
         client = genai.Client(api_key=gemini_api_key)
         
-        for model_name in GEMINI_MODELS:
+        models = _models_for(gemini_api_key)
+        for model_name in models:
             try:
                 t_llm = time.time()
                 response = client.models.generate_content(
@@ -195,7 +204,7 @@ INSTRUCTIONS:
                 return response.text.strip()
             except Exception as e:
                 print(f"--- [INF] Fallback: Interpretation model {model_name} failed. Details: {str(e)} ---")
-                if model_name == GEMINI_MODELS[-1]:
+                if model_name == models[-1]:
                     raise e
                     
     except Exception as e:
@@ -208,7 +217,8 @@ def generate_session_title(file_name: str, file_type: str, gemini_api_key: str) 
         from google import genai
         client = genai.Client(api_key=gemini_api_key)
         
-        for model_name in GEMINI_MODELS:
+        models = _models_for(gemini_api_key)
+        for model_name in models:
             try:
                 prompt = (
                     f"Generate a short, descriptive session title (max 8 words) for an uploaded "
@@ -219,7 +229,7 @@ def generate_session_title(file_name: str, file_type: str, gemini_api_key: str) 
                 return response.text.strip()[:100]
             except Exception as e:
                 print(f"--- [INF] Fallback: Title generation model {model_name} failed. Details: {str(e)} ---")
-                if model_name == GEMINI_MODELS[-1]:
+                if model_name == models[-1]:
                      return file_name.rsplit(".", 1)[0][:100]
     except Exception:
         return file_name.rsplit(".", 1)[0][:100]

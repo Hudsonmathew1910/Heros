@@ -1,0 +1,99 @@
+{
+  "_readme": [
+    "Single source of truth for every LLM model name Heros uses.",
+    "Top level = provider (gemini / openrouter / groq / huggingface); every string inside a provider is a model id at that provider.",
+    "Lists are tried in order (first = preferred). Read through backend/llm_registry.py — do not hard-code model names elsewhere.",
+    "Check availability: python backend/test_llm_availability.py",
+    "Not in here on purpose: Infinsight embedding models (infinsight/Embedding.py) — changing them requires re-indexing Pinecone."
+  ],
+  "gemini": {
+    "baymax_tasks": {
+      "text_chat": "gemini-3.5-flash-lite",
+      "voice_chat": "gemini-3.5-flash-lite",
+      "file_analysis": "gemini-3.5-flash-lite",
+      "coding": "gemini-3.6-flash",
+      "live_screen": "gemini-3.6-flash",
+      "web_search": "gemini-3.5-flash-lite",
+      "web_search_preprocessor": "gemini-3.5-flash-lite",
+      "zeno_plus": "gemini-3.5-flash-lite",
+      "zeno_eco": "gemini-3.5-flash-lite",
+      "zeno_voice": "gemini-3.5-flash-lite"
+    },
+    "baymax_fallback": [
+      "gemini-3.6-flash",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-flash-latest"
+    ],
+    "baymax_fallback_fast": [
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-2.5-flash-lite",
+      "gemini-3.5-flash",
+      "gemini-flash-latest"
+    ],
+    "infinsight": [
+      "gemini-3.6-flash",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-1.5-flash"
+    ],
+    "infinsight_fast": [
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-2.5-flash-lite",
+      "gemini-3.5-flash",
+      "gemini-2.5-flash"
+    ],
+    "transcribe": "gemini-3.5-flash-lite",
+    "query_rewriter": "gemini-3.5-flash-lite"
+  },
+  "openrouter": {
+    "baymax_tasks": {
+      "task_automation": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    "baymax_fallback": [
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      "meta-llama/llama-3.2-3b-instruct:free",
+      "google/gemma-2-9b-it:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "nvidia/nemotron-3.5-lightning:free"
+    ]
+  },
+  "groq": {
+    "baymax_tasks": {
+      "zeno_shadow": "openai/gpt-oss-20b"
+    },
+    "baymax_fallback": [
+      "openai/gpt-oss-20b",
+      "qwen/qwen3.8-27b",
+      "openai/gpt-oss-120b",
+      "allam-2-7b"
+    ],
+    "zuno_intent": [
+      "allam-2-7b",
+      "openai/gpt-oss-20b",
+      "qwen/qwen3.8-27b",
+      "openai/gpt-oss-120b"
+    ],
+    "query_rewriter": "openai/gpt-oss-20b",
+    "transcribe": "whisper-large-v3"
+  },
+  "huggingface": {
+    "halo_tasks": {
+      "text_chat": "meta-llama/Llama-3.3-70B-Instruct",
+      "coding": "Qwen/Qwen2.5-Coder-32B-Instruct",
+      "voice": "mistralai/Mistral-Nemo-Instruct-2407",
+      "websearch": "CohereForAI/c4ai-command-r-plus",
+      "default": "meta-llama/Llama-3.3-70B-Instruct"
+    },
+    "halo_fallback": "mistralai/Mistral-Nemo-Instruct-2407",
+    "halo_search_check": "meta-llama/Llama-3.2-3B-Instruct"
+  }
+}

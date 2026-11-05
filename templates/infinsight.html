@@ -32,6 +32,14 @@
         data-lpignore="true" data-1password-ignore="true" data-form-type="other" name="gemini_key_no_autofill" />
       <button type="button" class="ins-apikey-save" id="sidebarApikeySaveBtn" onclick="saveGeminiKey()">Save</button>
     </div>
+    <div class="ins-apikey-hint" id="apikeyGuestHint" style="display:none">
+      Kept only in this browser for 24 hours. Log in to save it to your account.
+    </div>
+  </div>
+
+  <div class="ins-guest-banner" id="guestBanner">
+    <i class="fa-solid fa-user-clock"></i>
+    <span id="guestBannerText"></span>
   </div>
 
   <div class="ins-nokey-banner" id="nokeyBanner">
@@ -92,7 +100,7 @@
         role="button" tabindex="0" onkeydown="if(event.key==='Enter')handleUploadClick()">
         <div class="ins-drop-icon"><i class="fa-solid fa-file-arrow-up"></i></div>
         <div class="ins-drop-text"><span class="primary">Click to upload</span> or drag and drop</div>
-        <div class="ins-drop-hint">CSV, Excel, or PDF (max. 20MB)</div>
+        <div class="ins-drop-hint" id="welcomeDropHint">CSV, Excel, or PDF (max. 20MB)</div>
       </div>
 
       <div class="ins-capabilities">
@@ -216,7 +224,7 @@
           ondragover="handleModalDrag(event)" ondrop="handleModalDrop(event)" ondragleave="this.classList.remove('drag-over')">
           <i class="fa-solid fa-file-arrow-up"></i>
           <div class="drop-text">Click to browse or drag &amp; drop</div>
-          <div class="drop-sub">CSV, Excel (.xlsx/.xls), PDF — max 20MB</div>
+          <div class="drop-sub" id="modalDropHint">CSV, Excel (.xlsx/.xls), PDF — max 20MB</div>
         </div>
         <input type="file" id="insFileInput" accept=".csv,.xlsx,.xls,.pdf" onchange="handleFileSelect(this)" hidden />
         <div class="ins-selected-file" id="selectedFileDisplay">

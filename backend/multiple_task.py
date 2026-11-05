@@ -90,7 +90,7 @@ class MultipleTask:
             f"Keep your response concise and conversational since this is a voice chat."
         )
         
-        primary = self.baymax.models.get("voice_chat", "gemini-3.5-flash-lite")
+        primary = self.baymax.models["voice_chat"]
         max_tok = self.baymax._TOKEN_BUDGETS.get("voice", 256)
         
         return self.baymax._with_fallback(
@@ -120,7 +120,7 @@ class MultipleTask:
             f"Important: Keep your response extremely brief, casual, and natural (max 2-3 short sentences, under 60 words total) since this is a voice chat. Do not output lists or bullets."
         )
         
-        primary = self.baymax.models.get("voice_chat", "gemini-3.5-flash-lite")
+        primary = self.baymax.models["voice_chat"]
         max_tok = self.baymax._TOKEN_BUDGETS.get("voice", 256)
         
         response = self.baymax._with_fallback(

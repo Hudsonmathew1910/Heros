@@ -40,11 +40,42 @@ from .encryption import encrypt_api_key, decrypt_api_key
 from .hero_model import Baymax
 from .Nlp import preprocess, resolve_mode
 from .utils import safe_error_response
+from . import llm_registry
+from .usage_tracker import (
+    GUEST_CHAT_LIMIT, get_guest_ip, guest_remaining, guest_consume,
+)
 
 # ---------------------------------------------------------------------------
 # Module-level logger
 # ---------------------------------------------------------------------------
 logger = logging.getLogger("hero_ai.views")
+
+# Modes a non-logged-in guest may use on /api/chat (plain conversation only).
+GUEST_ALLOWED_MODES = {'text', 'Voice Chat', 'voice_message', 'zeno_eco', 'zeno_voice'}
+
+
+def _is_logged_in(request) -> bool:
+    if request.session.get('user_id'):
+        return True
+    sk_raw = request.headers.get('X-Session-Id', '')
+    if sk_raw:
+        from django.contrib.sessions.backends.db import SessionStore
+        for sk in sk_raw.split(','):
+            sk = sk.strip()
+            if sk and SessionStore(session_key=sk).get('user_id'):
+                return True
+    return False
+
+
+def _guest_rate(rate):
+    """django-ratelimit rate callable: limit guests only, logged-in users unlimited."""
+    def _rate(group, request):
+        return None if _is_logged_in(request) else rate
+    return _rate
+
+
+def _guest_ip_key(group, request):
+    return get_guest_ip(request)
 
 # Reusable thread pool for async DB writes
 _db_executor = ThreadPoolExecutor(max_workers=4)
@@ -339,7 +370,10 @@ def home(request):
     if not username:
         username = request.session.get('user_name')
 
-    return render(request, 'home.html', {'username': username, 'email': email})
+    return render(request, 'home.html', {
+        'username': username, 'email': email,
+        'dev_models': llm_registry.developer_mode_models(),  # Developer mode picker
+    })
 
 
 def landing(request):
@@ -662,6 +696,7 @@ def check_api_keys(request):
 
 # ── Chat ──────────────────────────────────────────────────────────────────────
 @csrf_exempt
+@ratelimit(key=_guest_ip_key, rate=_guest_rate('10/m'), block=False)
 @optional_login_json
 @json_only
 def chat_api(request):
@@ -681,6 +716,15 @@ def chat_api(request):
     d  = request.json_data
     req_id = d.get('req_id')
 
+    if getattr(request, 'limited', False):
+        return JsonResponse({
+            "status": "success",
+            "reply": "You're sending messages too quickly. Please wait a minute and try again.",
+            "session_id": d.get('session_id'),
+            "is_new_chat": False,
+            "temporary": True,
+        })
+
     raw_message    = d.get('message', '').strip()
     model          = d.get('model', 'Baymax')
     mode           = d.get('mode', 'text')
@@ -699,20 +743,42 @@ def chat_api(request):
     # A user is a superuser if their is_superuser flag is set to True.
     is_superuser: bool = getattr(request.user_obj, 'is_superuser', False) if getattr(request, 'user_obj', None) else False
     
-    if not getattr(request, 'user_obj', None):
+    is_guest = not getattr(request, 'user_obj', None)
+    if is_guest:
+        # Guests: Baymax only, plain chat only, 5 messages, nothing saved.
         temporary_chat = True
-        
-        if mode == 'zeno_plus':
+        is_fast = False
+
+        def _guest_reply(text, **extra):
             return JsonResponse({
                 "status": "success",
-                "reply": "**Login Required**\n\nPlease log in to your Heros account and configure your Groq API key to use Zeno Plus.",
+                "reply": text,
                 "session_id": session_id_str,
                 "is_new_chat": False,
-                "temporary": True
+                "temporary": True,
+                "login_required": True,
+                **extra,
             })
-            
-        if model not in ['Halo', 'Baymax']:
-            model = 'Halo'
+
+        if is_developer:
+            return _guest_reply("**Login Required**\n\nDeveloper mode is only available after you log in.")
+        if model == 'Halo':
+            return _guest_reply("**Login Required**\n\nHalo is only available after you log in. You can keep chatting with Baymax.")
+        if mode not in GUEST_ALLOWED_MODES:
+            return _guest_reply(
+                "**Login Required**\n\nWeb search, coding, file upload and Fast mode are only available "
+                "after you log in and add your API keys. You can keep chatting normally."
+            )
+        model = 'Baymax'
+
+        if guest_remaining(request, 'baymax', GUEST_CHAT_LIMIT) <= 0:
+            return _guest_reply(
+                "**Free limit reached**\n\nYou have used all "
+                f"{GUEST_CHAT_LIMIT} free messages. Please **log in** and add your API keys "
+                "(Gemini, OpenRouter or Groq) in settings to keep chatting.",
+                limit_reached=True,
+                guest_remaining=0,
+            )
 
     if mode.startswith('zeno_'):
         model = 'Baymax'
@@ -800,6 +866,9 @@ def chat_api(request):
         message    = nlp_result["clean_text"] or raw_message
         mode       = resolve_mode(nlp_result, mode)
         nlp_intent = nlp_result["intent"]
+        if is_guest and mode not in GUEST_ALLOWED_MODES:
+            # NLP may route to search/coding/etc. — guests stay on plain chat.
+            mode = 'text'
 
         if nlp_intent == "play_song":
             try:
@@ -950,13 +1019,9 @@ def chat_api(request):
                     except Api.DoesNotExist:
                         pass
                 
-                if request.user_obj:
-                    user_key = f"user_{request.user_obj.user_id}"
-                else:
-                    if not request.session.session_key:
-                        request.session.create()
-                    user_key = f"anon_{request.session.session_key}" if request.session.session_key else "anon_default"
-                
+                # Guests are rejected before reaching here, so a user always exists.
+                user_key = f"user_{request.user_obj.user_id}"
+
                 # Block coding and file handling tasks for Halo if user has no Hugging Face API key
                 coding_and_file_modes = {
                     'coding', 'file_handle', 'search_code', 'search_file', 
@@ -994,15 +1059,11 @@ def chat_api(request):
                 )
             else:
                 has_user_keys = bool(gemini_key or openrouter_key or groq_key)
-                if not has_user_keys:
+                # Guests were already quota-checked at the top (counted on success below).
+                if not has_user_keys and not is_guest:
                     from .usage_tracker import get_baymax_usage, increment_baymax_usage, BAYMAX_MAX_LIMIT
-                    if request.user_obj:
-                        user_key = f"user_{request.user_obj.user_id}"
-                    else:
-                        if not request.session.session_key:
-                            request.session.create()
-                        user_key = f"anon_{request.session.session_key}" if request.session.session_key else "anon_default"
-                    
+                    user_key = f"user_{request.user_obj.user_id}"
+
                     current_usage = get_baymax_usage(user_key)
                     if current_usage >= BAYMAX_MAX_LIMIT:
                         if mode.startswith('zeno_'):
@@ -1034,6 +1095,7 @@ def chat_api(request):
                     db_lookup_time=db_lookup_time,
                     custom_temperature=custom_temp,
                     custom_max_tokens=custom_tokens,
+                    allow_search=not is_guest,
                 )
         except ImportError as e:
             missing = str(e).replace("No module named ", "").strip("'")
@@ -1056,6 +1118,7 @@ def chat_api(request):
         t1 = time.time()
 
         # ── Handler dispatch ──────────────────────────────────────────────────
+        handler_ok = False
         try:
             from backend.multiple_task import MultipleTask
             mt = MultipleTask(baymax)
@@ -1084,6 +1147,7 @@ def chat_api(request):
                 'infinsight':    lambda: __import__('infinsight.Llm', fromlist=['']).generate_analyst_response(message, [], gemini_key, chat_history)[0],
             }
             reply = handlers.get(mode, lambda: baymax.handle_text(message))()
+            handler_ok = bool(reply)
         except ImportError as e:
             missing = str(e).replace("No module named ", "").strip("'")
             reply = (
@@ -1150,7 +1214,13 @@ def chat_api(request):
         
         if hasattr(baymax, 'latest_web_evidence') and baymax.latest_web_evidence:
             response_data["web_evidence"] = baymax.latest_web_evidence
-            
+
+        # Guests: only successful replies use up a free message.
+        if is_guest:
+            if handler_ok and not is_aborted:
+                guest_consume(request, 'baymax')
+            response_data["guest_remaining"] = guest_remaining(request, 'baymax', GUEST_CHAT_LIMIT)
+
         return JsonResponse(response_data)
 
     except Exception as e:
@@ -1363,7 +1433,10 @@ async def _generate_tts_audio(text, voice="en-US-AriaNeural"):
     return bytes(audio_data)
 
 @csrf_exempt
+@ratelimit(key=_guest_ip_key, rate=_guest_rate('30/h'), block=False)
 def tts_api(request):
+    if getattr(request, 'limited', False):
+        return JsonResponse({"status": "fail", "message": "Too many voice requests. Please log in for unlimited voice."}, status=429)
     if request.method not in ["GET", "POST"]:
         return JsonResponse({"status": "fail", "message": "Method not allowed"}, status=405)
     
@@ -1401,8 +1474,10 @@ def tts_api(request):
 
 
 @csrf_exempt
-@optional_login_json
+@login_required_json
 def transcribe_audio(request):
+    # Server-side speech-to-text uses Groq/Gemini keys → login only.
+    # (Guests on Chrome/Edge still have free in-browser voice recognition.)
     logger.info("Transcribe audio endpoint hit. Method: %s, Content-Type: %s", request.method, request.content_type)
     
     if request.method != 'POST':
@@ -1468,7 +1543,7 @@ def transcribe_audio(request):
                 "file": (audio_file.name, audio_file.read(), audio_file.content_type or "audio/webm")
             }
             data = {
-                "model": "whisper-large-v3"
+                "model": llm_registry.get("groq", "transcribe")
             }
             r = requests.post(url, headers=headers, files=files, data=data)
             if r.status_code == 200:
@@ -1486,7 +1561,7 @@ def transcribe_audio(request):
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel("gemini-3.5-flash-lite")
+            model = genai.GenerativeModel(llm_registry.get("gemini", "transcribe"))
             
             import tempfile
             import os

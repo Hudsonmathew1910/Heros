@@ -20,7 +20,9 @@ class UploadedFile(models.Model):
     ]
 
     file_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="infinsight_files")
+    # user is NULL for guest (non-login) uploads; anon_key then identifies the guest.
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="infinsight_files", null=True, blank=True)
+    anon_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
     file = models.FileField(upload_to="infinsight/uploads/%Y/%m/%d/")
     original_filename = models.CharField(max_length=255)
     file_type = models.CharField(max_length=10, choices=FILE_TYPE_CHOICES)
@@ -33,7 +35,7 @@ class UploadedFile(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.original_filename} ({self.user.name})"
+        return f"{self.original_filename} ({self.user.name if self.user else 'guest'})"
 
 
 class ProjectSession(models.Model):
@@ -49,7 +51,11 @@ class ProjectSession(models.Model):
     ]
 
     session_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="infinsight_sessions")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="infinsight_sessions", null=True, blank=True)
+    anon_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    # Guest-created sessions are temporary: deleted (files, vectors, chats) after this time.
+    # Cleared (kept forever) when the guest logs in before it passes.
+    expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
     uploaded_file = models.OneToOneField(
         UploadedFile, on_delete=models.CASCADE, related_name="session"
     )
@@ -66,12 +72,13 @@ class ProjectSession(models.Model):
         ordering = ["-updated_at"]
 
     def __str__(self):
-        return f"{self.session_name} — {self.user.name}"
+        return f"{self.session_name} — {self.user.name if self.user else 'guest'}"
 
     def save(self, *args, **kwargs):
         if not self.pinecone_namespace:
+            owner = str(self.user.user_id).replace('-', '') if self.user else f"guest{self.anon_key}"
             self.pinecone_namespace = (
-                f"infinsight_{str(self.user.user_id).replace('-', '')}_{str(self.session_id).replace('-', '')}"
+                f"infinsight_{owner}_{str(self.session_id).replace('-', '')}"
             )
         super().save(*args, **kwargs)
 
