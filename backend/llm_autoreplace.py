@@ -27,6 +27,7 @@ import json
 import os
 import re
 import sys
+import time
 from collections import defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -42,11 +43,15 @@ from backend import llm_catalogue as cat          # noqa: E402
 from backend import llm_registry                   # noqa: E402
 
 MAX_PROBES = 5  # live-test at most this many candidates per removed model
+MIN_SCORE = 0.0  # never pick a poor match — report "needs attention" instead
+BUSY_RETRIES = 2  # a "busy" (HTTP 429/503) model is retried before moving on
+BUSY_WAIT_S = 8
+STRONG_MATCH = 3.0  # a busy candidate this similar (same vendor + family) is still accepted
 
 # Never offer these as a chat-model replacement
 NOT_CHAT = re.compile(
     r"embed|tts|audio|image|imagen|veo|vision-only|live|aqa|learnlm|robotics|computer-use|"
-    r"guard|moderation|whisper|distil|orpheus|playai|compound|rerank|transcri|native-audio",
+    r"guard|moderation|safety|whisper|distil|orpheus|playai|compound|rerank|transcri|native-audio",
     re.I,
 )
 UNSTABLE = re.compile(r"preview|exp(erimental)?\b|-exp-|alpha|beta|\d{2}-\d{2}$", re.I)
@@ -139,7 +144,7 @@ def candidates(provider, old, in_use):
             if provider == "groq" and not meta.get("active", True):
                 continue
             if provider == "openrouter":
-                if _vendor(mid) in SKIP_VENDORS or re.search(r"alpha|beta", mid, re.I):
+                if _vendor(mid) in SKIP_VENDORS or re.search(r"alpha|beta|preview", mid, re.I):
                     continue
                 if "text" not in meta.get("output", ["text"]):
                     continue
@@ -148,6 +153,9 @@ def candidates(provider, old, in_use):
                 if (meta.get("context") or 0) < 8000:
                     continue
         out.append(mid)
+    is_code = bool(re.search(r"cod(e|er|ing)", old, re.I))
+    out = [m for m in out if is_code or not re.search(r"cod(e|er|ing)", m, re.I)]
+    out = [m for m in out if score(old, m, pool.get(m)) >= MIN_SCORE]
     out.sort(key=lambda m: score(old, m, pool.get(m)), reverse=True)
     return out
 
@@ -178,12 +186,23 @@ def find_missing():
 
 
 def choose_replacement(provider, old, taken=()):
+    """Returns (model, latency, tried). latency is None when the model was busy during the test."""
     in_use = {m for p, _, m in llm_registry.iter_models() if p == provider} | set(taken)
     tried = []
+    busy_strong = None
+    pool_meta = {} if provider == "huggingface" else cat.catalogue(provider)
     for cand in candidates(provider, old, in_use)[:MAX_PROBES]:
         ok, latency, detail = cat.probe(provider, cand)
+        for _ in range(BUSY_RETRIES):
+            if ok or not any(code in detail for code in ("HTTP 429", "HTTP 503")):
+                break
+            time.sleep(BUSY_WAIT_S)          # free models are often briefly rate-limited
+            ok, latency, detail = cat.probe(provider, cand)
         if ok:
             return cand, latency, tried
+        if (busy_strong is None and any(code in detail for code in ("HTTP 429", "HTTP 503"))
+                and score(old, cand, pool_meta.get(cand)) >= STRONG_MATCH):
+            busy_strong = cand
         if any(code in detail for code in ("HTTP 401", "HTTP 402", "HTTP 403")):
             # Account / key problem, not a model problem — no candidate can pass, so stop here.
             if "HTTP 403" in detail and provider == "huggingface":
@@ -199,6 +218,8 @@ def choose_replacement(provider, old, taken=()):
         if "not supported by any provider you have enabled" in detail:
             detail = "served only by an inference provider not enabled in your HF settings"
         tried.append(f"`{cand}` ({detail[:80]})")
+    if busy_strong:
+        return busy_strong, None, tried
     return None, None, tried
 
 
@@ -227,6 +248,25 @@ def apply_replacement(data, provider, old, new):
     data[provider] = walk(data[provider])
 
 
+def removable(slots):
+    """True when every place the model is used is an entry in a list (a fallback chain)."""
+    return bool(slots) and all(s.endswith("]") for s in slots)
+
+
+def apply_removal(data, provider, old):
+    """Drop `old` from every list in data[provider], keeping lists non-empty."""
+
+    def walk(node):
+        if isinstance(node, dict):
+            return {k: walk(v) for k, v in node.items()}
+        if isinstance(node, list):
+            kept = [walk(v) for v in node if v != old]
+            return kept if kept else node
+        return node
+
+    data[provider] = walk(data[provider])
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--apply", action="store_true", help="write replacements into llm_models.json")
@@ -234,7 +274,7 @@ def main():
     args = ap.parse_args()
 
     missing, errors, total = find_missing()
-    replaced, unresolved = [], []
+    replaced, removed, unresolved = [], [], []
 
     taken = set()  # replacements already picked in this run — never reuse one
     for provider, old, slots in missing:
@@ -246,22 +286,26 @@ def main():
             new, latency, tried = None, None, [f"error: {e}"]
         if new:
             replaced.append((provider, old, new, latency, slots))
+        elif removable(slots) and not any("account cannot run" in t for t in tried):
+            removed.append((provider, old, slots, tried))
         else:
             unresolved.append((provider, old, slots, tried))
 
     changed = False
-    if args.apply and replaced:
+    if args.apply and (replaced or removed):
         with open(llm_registry.MODELS_FILE, encoding="utf-8") as f:
             data = json.load(f)
         for provider, old, new, _, _ in replaced:
             apply_replacement(data, provider, old, new)
+        for provider, old, _, _ in removed:
+            apply_removal(data, provider, old)
         with open(llm_registry.MODELS_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
             f.write("\n")
         llm_registry.reload()
         changed = True
 
-    report = build_report(total, replaced, unresolved, errors, applied=args.apply)
+    report = build_report(total, replaced, removed, unresolved, errors, applied=args.apply)
     print(report)
     if args.report:
         with open(args.report, "w", encoding="utf-8") as f:
@@ -276,11 +320,11 @@ def main():
     return 1 if (unresolved or errors) else 0
 
 
-def build_report(total, replaced, unresolved, errors, applied):
+def build_report(total, replaced, removed, unresolved, errors, applied):
     lines = ["## Weekly LLM model check", ""]
     lines.append(f"Checked **{total}** models across Hugging Face, Gemini, Groq and OpenRouter.")
     lines.append("")
-    if not (replaced or unresolved or errors):
+    if not (replaced or removed or unresolved or errors):
         lines.append("All models are still available. Nothing to change.")
     if replaced:
         verb = "Replaced" if applied else "Would replace"
@@ -288,15 +332,26 @@ def build_report(total, replaced, unresolved, errors, applied):
                   "| Provider | Removed model | Replacement | Live test | Used in |",
                   "|---|---|---|---|---|"]
         for provider, old, new, latency, slots in replaced:
-            lines.append(f"| {provider} | `{old}` | `{new}` | answered in {latency:.1f}s | {', '.join(slots)} |")
+            test = f"answered in {latency:.1f}s" if latency is not None else \
+                "⚠️ busy during test (rate-limited) — strong match, exists at provider"
+            lines.append(f"| {provider} | `{old}` | `{new}` | {test} | {', '.join(slots)} |")
         lines += ["", "Please review: the robot checks that the new model **works and is fast**, "
                       "but not the **quality** of its answers. Try a few chats before merging.", ""]
+    if removed:
+        verb = "Removed" if applied else "Would remove"
+        lines += [f"### {verb} {len(removed)} dead model(s) from backup lists", "",
+                  "No good replacement answered, and the other models in the same list still cover it.", ""]
+        for provider, old, slots, tried in removed:
+            lines.append(f"- **{provider}** `{old}` (from {', '.join(slots)})")
+        lines.append("")
     if unresolved:
         lines += [f"### Needs attention: {len(unresolved)} model(s) with no automatic replacement", ""]
         for provider, old, slots, tried in unresolved:
             lines.append(f"- **{provider}** `{old}` (used in {', '.join(slots)})")
             if tried:
                 lines.append(f"  - tried: {', '.join(tried)}")
+            else:
+                lines.append("  - no similar chat model found at this provider — pick one by hand")
         lines.append("")
     if errors:
         lines += ["### Could not check", ""] + [f"- {e}" for e in errors] + [""]

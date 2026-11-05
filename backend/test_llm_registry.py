@@ -63,6 +63,29 @@ class LLMRegistryTests(SimpleTestCase):
             got = a.candidates("openrouter", "google/gemma-2-9b-it:free", in_use=set())
         self.assertEqual(got, ["google/gemma-3-12b-it:free"])
 
+    def test_autoreplace_removes_dead_model_only_from_lists(self):
+        from backend.llm_autoreplace import apply_removal, removable
+        data = {"openrouter": {"fallback": ["a:free", "dead:free", "b:free"], "only": ["dead:free"]}}
+        apply_removal(data, "openrouter", "dead:free")
+        self.assertEqual(data["openrouter"]["fallback"], ["a:free", "b:free"])
+        self.assertEqual(data["openrouter"]["only"], ["dead:free"])   # never leave a list empty
+        self.assertTrue(removable(["baymax_fallback[1]"]))
+        self.assertFalse(removable(["baymax_tasks.task_automation", "baymax_fallback[0]"]))  # a task needs a model
+
+    def test_autoreplace_rejects_poor_and_preview_matches(self):
+        from unittest import mock
+        from backend import llm_autoreplace as a
+        fake = {
+            "google/gemma-4-26b-it:free": {"context": 128000, "free": True, "output": ["text"]},
+            "dots/dots-note-preview:free": {"context": 128000, "free": True, "output": ["text"]},  # preview
+            "acme/safety-checker:free": {"context": 128000, "free": True, "output": ["text"]},     # safety model
+            "acme/code-helper:free": {"context": 128000, "free": True, "output": ["text"]},        # coding model
+            "random/flint-v1:free": {"context": 128000, "free": True, "output": ["text"]},         # poor match
+        }
+        with mock.patch.object(a.cat, "catalogue", return_value=fake):
+            got = a.candidates("openrouter", "google/gemma-2-9b-it:free", in_use=set())
+        self.assertEqual(got, ["google/gemma-4-26b-it:free"])
+
     def test_no_hardcoded_model_names_outside_registry(self):
         offenders = []
         for d in CODE_DIRS:
