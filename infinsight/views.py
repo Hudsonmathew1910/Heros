@@ -3,11 +3,12 @@ infinsight/views.py
 --------------------
 All API endpoints for Infinsight.
 No AI logic here — delegates everything to the service layer.
+
+Works for logged-in users AND guests (see infinsight/guest.py for the guest rules).
 """
 
 import json
 import logging
-import os
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
@@ -15,19 +16,24 @@ from functools import wraps
 
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import render
-from django.conf import settings
+from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 from django.views.decorators.csrf import csrf_exempt
 
 from backend.models import User, Api
 from backend.encryption import decrypt_api_key
 from backend.utils import safe_error_response
+from backend.usage_tracker import (
+    INF_GUEST_UPLOAD_LIMIT, INF_GUEST_CHAT_LIMIT,
+    get_guest_id, get_guest_ip, guest_remaining, guest_consume,
+)
 from .models import UploadedFile, ProjectSession, ChatMessage
 from .Rag import ingest_file, query_session, cleanup_session, get_session_title
+from . import guest as G
 
 logger = logging.getLogger("infinsight.views")
 
-# Thread pool for async ingestion (non-blocking uploads)
+# Thread pool for async ingestion (non-blocking uploads) + guest cleanup
 _ingest_executor = ThreadPoolExecutor(max_workers=3)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -44,44 +50,92 @@ EXT_TO_TYPE = {
     "pdf": "pdf",
 }
 
+# Key sources returned by _resolve_key
+KEY_USER = "user"      # logged-in user's saved Gemini key
+KEY_GUEST = "guest"    # key the visitor entered on Infinsight (session only, 24 h)
+KEY_FREE = "free"      # server key — guest free tier (limited)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Decorators
+# Identity
 # ─────────────────────────────────────────────────────────────────────────────
 
-def login_required_json(f):
+def user_or_guest_json(f):
+    """
+    Sets request.user_obj (User or None) and request.guest_id.
+    When a logged-in user still has guest sessions from this browser, they are
+    moved into the account (expiry is kept).
+    """
     @wraps(f)
     def wrapper(request, *args, **kwargs):
+        request.user_obj = None
         uid = request.session.get("user_id")
-        if not uid:
-            return JsonResponse({"status": "fail", "message": "Authentication required"}, status=401)
-        try:
-            request.user_obj = User.objects.get(user_id=uid)
-        except User.DoesNotExist:
-            request.session.flush()
-            return JsonResponse({"status": "fail", "message": "Session invalid"}, status=401)
+        if uid:
+            try:
+                request.user_obj = User.objects.get(user_id=uid)
+            except User.DoesNotExist:
+                request.session.flush()
+                return JsonResponse({"status": "fail", "message": "Session invalid"}, status=401)
+        request.guest_id = get_guest_id(request)
+        if request.user_obj:
+            G.claim_guest_data(request.user_obj, request.guest_id)
         return f(request, *args, **kwargs)
     return wrapper
 
 
-def _get_gemini_key(user) -> str:
-    """Fetch and decrypt the user's Gemini API key."""
-    try:
-        api = Api.objects.get(user=user, model_name="Gemini")
-        return decrypt_api_key(api.api_key_encrypted)
-    except Api.DoesNotExist:
-        raise ValueError("No Gemini API key found. Please add your Gemini key in profile / settings / api key.")
+def _owned_sessions(request):
+    """Sessions visible to this visitor (never expired ones)."""
+    if request.user_obj:
+        qs = ProjectSession.objects.filter(user=request.user_obj)
+    else:
+        qs = ProjectSession.objects.filter(user__isnull=True, anon_key=request.guest_id)
+    return qs.filter(G.not_expired_q())
 
 
-def _validate_file(uploaded_file):
+def _resolve_key(request):
+    """Return (gemini_key, source) — source is KEY_USER / KEY_GUEST / KEY_FREE / None."""
+    if request.user_obj:
+        try:
+            api = Api.objects.get(user=request.user_obj, model_name="Gemini")
+            key = decrypt_api_key(api.api_key_encrypted)
+            if key:
+                return key, KEY_USER
+        except Api.DoesNotExist:
+            pass
+    key = G.get_guest_key(request)
+    if key:
+        return key, KEY_GUEST
+    if not request.user_obj:
+        free = G.get_server_free_key()
+        if free:
+            return free, KEY_FREE
+    return None, None
+
+
+NO_KEY_MSG = "No Gemini API key found. Please add your Gemini key in profile / settings / api key."
+FREE_UPLOAD_USED_MSG = (
+    "You have used your free upload. Add your own Gemini API key (or log in and add it) "
+    "to upload more files."
+)
+FREE_CHAT_USED_MSG = (
+    f"You have used all {INF_GUEST_CHAT_LIMIT} free messages. Add your own Gemini API key "
+    "(or log in and add it) to keep chatting."
+)
+
+
+def _validate_file(uploaded_file, max_mb=MAX_FILE_SIZE_MB):
     """Validate extension and file size. Returns (ext, file_type) or raises."""
     name = uploaded_file.name
     ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
     if ext not in ALLOWED_EXTENSIONS:
         raise ValueError(f"Unsupported file type '.{ext}'. Allowed: CSV, Excel, PDF.")
-    if uploaded_file.size > MAX_FILE_SIZE_BYTES:
-        raise ValueError(f"File too large ({uploaded_file.size // (1024*1024)}MB). Max is {MAX_FILE_SIZE_MB}MB.")
+    if uploaded_file.size > max_mb * 1024 * 1024:
+        raise ValueError(f"File too large ({uploaded_file.size // (1024*1024)}MB). Max is {max_mb}MB.")
     return ext, EXT_TO_TYPE[ext]
+
+
+def _ip_key(group, request):
+    return get_guest_ip(request)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -102,11 +156,59 @@ def infinsight_page(request):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Guest status + guest key
+# ─────────────────────────────────────────────────────────────────────────────
+
+@user_or_guest_json
+def guest_status(request):
+    """GET /infinsight/guest/status/ — what this visitor can do right now."""
+    key, source = _resolve_key(request)
+    is_guest = request.user_obj is None
+    return JsonResponse({
+        "status": "success",
+        "logged_in": not is_guest,
+        "key_source": source,                      # user / guest / free / null
+        "has_own_key": source in (KEY_USER, KEY_GUEST),
+        "free_uploads_left": guest_remaining(request, "inf_upload", INF_GUEST_UPLOAD_LIMIT) if is_guest else 0,
+        "free_messages_left": guest_remaining(request, "inf_chat", INF_GUEST_CHAT_LIMIT) if is_guest else 0,
+        "free_max_file_mb": G.GUEST_FREE_MAX_FILE_MB,
+        "guest_ttl_hours": int(G.GUEST_TTL.total_seconds() // 3600),
+    })
+
+
+@csrf_exempt
+@ratelimit(key=_ip_key, rate="10/h", block=False)
+@user_or_guest_json
+def guest_key(request):
+    """
+    POST   /infinsight/guest/key/  {"gemini": "..."} → validate + keep in session (24 h)
+    DELETE /infinsight/guest/key/                     → forget it
+    """
+    if request.method == "DELETE":
+        G.clear_guest_key(request)
+        return JsonResponse({"status": "success", "message": "Key removed."})
+    if request.method != "POST":
+        return JsonResponse({"status": "fail", "message": "Method not allowed"}, status=405)
+    if getattr(request, "limited", False):
+        return JsonResponse({"status": "fail", "message": "Too many attempts. Try again later."}, status=429)
+    try:
+        key = (json.loads(request.body).get("gemini") or "").strip()
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "fail", "message": "Invalid JSON"}, status=400)
+    if not key:
+        return JsonResponse({"status": "fail", "message": "Please enter your Gemini API key."}, status=400)
+    if not G.validate_gemini_key(key):
+        return JsonResponse({"status": "fail", "message": "This Gemini API key did not work. Please check it."}, status=400)
+    G.set_guest_key(request, key)
+    return JsonResponse({"status": "success", "message": "Key saved for this browser for 24 hours."})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # File Upload + Session creation
 # ─────────────────────────────────────────────────────────────────────────────
 @csrf_exempt
-@ratelimit(key='ip', rate='5/m', block=True)
-@login_required_json
+@ratelimit(key=_ip_key, rate='5/m', block=True)
+@user_or_guest_json
 def upload_file(request):
     """
     POST /infinsight/upload/
@@ -118,32 +220,49 @@ def upload_file(request):
     if request.method != "POST":
         return JsonResponse({"status": "fail", "message": "Method not allowed"}, status=405)
 
+    G.maybe_purge_in_background(_ingest_executor)
+
     uploaded = request.FILES.get("file")
     if not uploaded:
         return JsonResponse({"status": "fail", "message": "No file provided"}, status=400)
 
+    is_guest = request.user_obj is None
     try:
-        ext, file_type = _validate_file(uploaded)
-        gemini_key = _get_gemini_key(request.user_obj)
+        gemini_key, key_source = _resolve_key(request)
+        if not gemini_key:
+            raise ValueError(NO_KEY_MSG)
+
+        if key_source == KEY_FREE:
+            if guest_remaining(request, "inf_upload", INF_GUEST_UPLOAD_LIMIT) <= 0:
+                return JsonResponse({"status": "fail", "code": "free_limit", "message": FREE_UPLOAD_USED_MSG}, status=402)
+            ext, file_type = _validate_file(uploaded, max_mb=G.GUEST_FREE_MAX_FILE_MB)
+        else:
+            ext, file_type = _validate_file(uploaded)
+
+        owner = {"user": request.user_obj} if not is_guest else {"user": None, "anon_key": request.guest_id}
 
         # Persist file record
         file_record = UploadedFile.objects.create(
-            user=request.user_obj,
             file=uploaded,
             original_filename=uploaded.name,
             file_type=file_type,
             file_size=uploaded.size,
+            **owner,
         )
 
         # Generate a nice title
         title = get_session_title(uploaded.name, file_type, gemini_key)
 
-        # Create session (status=processing)
+        # Create session (status=processing). Guest sessions are temporary.
         session = ProjectSession.objects.create(
-            user=request.user_obj,
             uploaded_file=file_record,
             session_name=title,
+            expires_at=(timezone.now() + G.GUEST_TTL) if is_guest else None,
+            **owner,
         )
+
+        if key_source == KEY_FREE:
+            guest_consume(request, "inf_upload")
 
         # Kick off async ingestion
         _ingest_executor.submit(
@@ -158,20 +277,27 @@ def upload_file(request):
         return JsonResponse({
             "status": "success",
             "message": "File uploaded. Processing started.",
-            "session": {
-                "session_id": str(session.session_id),
-                "session_name": session.session_name,
-                "file_name": uploaded.name,
-                "file_type": file_type,
-                "status": session.status,
-                "created_at": session.created_at.isoformat(),
-            },
+            "session": _session_summary(session),
         })
 
     except ValueError as e:
         return JsonResponse({"status": "fail", "message": str(e)}, status=400)
     except Exception as e:
         return safe_error_response(request, logger, "Upload", e)
+
+
+def _session_summary(s):
+    return {
+        "session_id": str(s.session_id),
+        "session_name": s.session_name,
+        "file_name": s.uploaded_file.original_filename,
+        "file_type": s.uploaded_file.file_type,
+        "status": s.status,
+        "chunk_count": s.chunk_count,
+        "created_at": s.created_at.isoformat(),
+        "updated_at": s.updated_at.isoformat(),
+        "expires_at": s.expires_at.isoformat() if s.expires_at else None,
+    }
 
 
 def _async_ingest(session_id, file_path: str, file_type: str, gemini_key: str):
@@ -201,8 +327,8 @@ def _async_ingest(session_id, file_path: str, file_type: str, gemini_key: str):
 # Chat
 # ─────────────────────────────────────────────────────────────────────────────
 @csrf_exempt
-@ratelimit(key='ip', rate='20/m', block=True)
-@login_required_json
+@ratelimit(key=_ip_key, rate='20/m', block=True)
+@user_or_guest_json
 def chat(request):
     """
     POST /infinsight/chat/
@@ -227,14 +353,16 @@ def chat(request):
         return JsonResponse({"status": "fail", "message": "message required"}, status=400)
 
     try:
-        session = ProjectSession.objects.get(session_id=session_id, user=request.user_obj)
+        session = _owned_sessions(request).get(session_id=session_id)
     except ProjectSession.DoesNotExist:
         return JsonResponse({"status": "fail", "message": "Session not found"}, status=404)
 
-    try:
-        gemini_key = _get_gemini_key(request.user_obj)
-    except ValueError as e:
-        return JsonResponse({"status": "fail", "message": str(e)}, status=400)
+    gemini_key, key_source = _resolve_key(request)
+    if not gemini_key:
+        return JsonResponse({"status": "fail", "code": "no_key", "message": NO_KEY_MSG}, status=400)
+    is_free = key_source == KEY_FREE
+    if is_free and guest_remaining(request, "inf_chat", INF_GUEST_CHAT_LIMIT) <= 0:
+        return JsonResponse({"status": "fail", "code": "free_limit", "message": FREE_CHAT_USED_MSG}, status=402)
 
     # Build chat history (last 6 messages)
     recent = list(session.messages.order_by("-timestamp")[:6])
@@ -263,12 +391,16 @@ def chat(request):
                             sources_used=chunk.get("sources", []),
                             model_used=chunk.get("model", "unknown"),
                         )
-                        from django.utils import timezone
                         session.updated_at = timezone.now()
                         session.save(update_fields=["updated_at"])
-                    
+
+                        # Free tier: only successful answers use up a message
+                        if is_free and not chunk.get("error"):
+                            guest_consume(request, "inf_chat")
+                            chunk["free_messages_left"] = guest_remaining(request, "inf_chat", INF_GUEST_CHAT_LIMIT)
+
                     logger.debug("Total Response Time: %.2fs", time.time() - t0)
-                
+
                 yield f"data: {json.dumps(chunk)}\n\n"
 
         except Exception as e:
@@ -278,37 +410,30 @@ def chat(request):
     return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
 
 
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Session Management
 # ─────────────────────────────────────────────────────────────────────────────
-@login_required_json
+@user_or_guest_json
 def list_sessions(request):
-    """GET /infinsight/sessions/ — list all sessions for the user."""
-    sessions = ProjectSession.objects.filter(user=request.user_obj).select_related("uploaded_file")
+    """GET /infinsight/sessions/ — list all sessions for this visitor."""
+    G.maybe_purge_in_background(_ingest_executor)
+    sessions = _owned_sessions(request).select_related("uploaded_file")
     data = []
     for s in sessions:
-        data.append({
-            "session_id": str(s.session_id),
-            "session_name": s.session_name,
-            "file_name": s.uploaded_file.original_filename,
-            "file_type": s.uploaded_file.file_type,
-            "status": s.status,
-            "chunk_count": s.chunk_count,
-            "message_count": s.messages.count(),
-            "created_at": s.created_at.isoformat(),
-            "updated_at": s.updated_at.isoformat(),
-        })
+        item = _session_summary(s)
+        item["message_count"] = s.messages.count()
+        data.append(item)
     return JsonResponse({"status": "success", "sessions": data})
-@login_required_json
+
+
+@user_or_guest_json
 def session_detail(request, session_id):
     """
     GET  /infinsight/session/<id>/  → chat history
     DELETE /infinsight/session/<id>/delete/ → handled separately
     """
     try:
-        session = ProjectSession.objects.get(session_id=session_id, user=request.user_obj)
+        session = _owned_sessions(request).get(session_id=session_id)
     except ProjectSession.DoesNotExist:
         return JsonResponse({"status": "fail", "message": "Session not found"}, status=404)
 
@@ -323,48 +448,32 @@ def session_detail(request, session_id):
             "timestamp": m.timestamp.isoformat(),
         })
 
-    return JsonResponse({
-        "status": "success",
-        "session": {
-            "session_id": str(session.session_id),
-            "session_name": session.session_name,
-            "file_name": session.uploaded_file.original_filename,
-            "file_type": session.uploaded_file.file_type,
-            "status": session.status,
-            "chunk_count": session.chunk_count,
-            "metadata": session.uploaded_file.metadata,
-            "created_at": session.created_at.isoformat(),
-        },
-        "messages": history,
-    })
-@login_required_json
+    info = _session_summary(session)
+    info["metadata"] = session.uploaded_file.metadata
+    return JsonResponse({"status": "success", "session": info, "messages": history})
+
+
+@user_or_guest_json
 def delete_session(request, session_id):
     """POST /infinsight/session/<id>/delete/"""
     if request.method not in ["DELETE", "POST"]:
         return JsonResponse({"status": "fail", "message": "Method not allowed"}, status=405)
     try:
-        session = ProjectSession.objects.get(session_id=session_id, user=request.user_obj)
+        session = _owned_sessions(request).get(session_id=session_id)
         cleanup_session(session)  # Delete Pinecone vectors
-        # Delete file from disk
-        try:
-            if session.uploaded_file.file:
-                import os
-                file_path = session.uploaded_file.file.path
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-        except Exception:
-            pass
-        session.uploaded_file.delete()  # Cascades to session + messages
+        G._delete_file_record(session.uploaded_file)  # Deletes file from disk; cascades to session + messages
         return JsonResponse({"status": "success", "message": "Session deleted"})
     except ProjectSession.DoesNotExist:
         return JsonResponse({"status": "fail", "message": "Session not found"}, status=404)
     except Exception as e:
         return safe_error_response(request, logger, "Delete session", e)
-@login_required_json
+
+
+@user_or_guest_json
 def session_status(request, session_id):
     """GET /infinsight/session/<id>/status/ — poll processing status."""
     try:
-        session = ProjectSession.objects.get(session_id=session_id, user=request.user_obj)
+        session = _owned_sessions(request).get(session_id=session_id)
         return JsonResponse({
             "status": "success",
             "session_status": session.status,

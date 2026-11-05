@@ -1,5 +1,6 @@
 import logging
 import requests
+from backend import llm_registry
 
 logger = logging.getLogger("hero_ai.query_rewriter")
 
@@ -128,7 +129,7 @@ Latest user query: {query}
             continue
         try:
             logger.info(f"[query_rewriter] Attempting Gemini rewrite with key index {idx}")
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={gk}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{llm_registry.get('gemini', 'query_rewriter')}:generateContent?key={gk}"
             r = requests.post(
                 url,
                 headers={"Content-Type": "application/json"},
@@ -183,7 +184,7 @@ Latest user query: {query}
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "openai/gpt-oss-20b",
+                    "model": llm_registry.get("groq", "query_rewriter"),
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 100,
                     "temperature": 0.1

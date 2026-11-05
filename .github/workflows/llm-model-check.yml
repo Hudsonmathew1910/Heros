@@ -1,0 +1,75 @@
+# Weekly LLM model check for Heros
+#
+# Every Monday: checks that every model in backend/llm_models.json still exists
+# at its provider (Hugging Face, Gemini, Groq, OpenRouter). If a model was removed, it
+# picks a working replacement from the same provider, live-tests it, and opens a
+# pull request for you to review. Problems it cannot fix make the run fail, and
+# GitHub emails you.
+#
+# One-time setup (GitHub repo → Settings):
+#   1. Secrets and variables → Actions → New repository secret, add:
+#        GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, HF_TOKEN
+#   2. Actions → General → Workflow permissions:
+#        "Read and write permissions" + tick "Allow GitHub Actions to create and approve pull requests"
+#
+# Run it any time by hand: Actions tab → "Weekly LLM model check" → Run workflow.
+
+name: Weekly LLM model check
+
+on:
+  schedule:
+    - cron: "30 3 * * 1"   # Mondays 03:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: llm-model-check
+  cancel-in-progress: false
+
+jobs:
+  check-models:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Check models and replace removed ones
+        id: check
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set +e
+          python backend/llm_autoreplace.py --apply --report "$RUNNER_TEMP/llm-report.md"
+          echo "Script exit code: $?"
+          cat "$RUNNER_TEMP/llm-report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open pull request with replacements
+        if: steps.check.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: bot/llm-model-update
+          delete-branch: true
+          add-paths: backend/llm_models.json
+          commit-message: "Replace removed LLM models (weekly check)"
+          title: "Weekly LLM model check: replace removed models"
+          body-path: ${{ runner.temp }}/llm-report.md
+
+      - name: Fail if something needs attention
+        if: steps.check.outputs.unresolved != '0'
+        run: |
+          echo "::error::Some models could not be checked or replaced automatically. See the run summary."
+          exit 1

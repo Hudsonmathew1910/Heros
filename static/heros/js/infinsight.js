@@ -20,7 +20,18 @@ const state = {
   loggedIn: false,
   user: null,
   hasGeminiKey: false,
+  // Guest (non-login) state — from /infinsight/guest/status/
+  keySource: null,          // "user" | "guest" | "free" | null
+  freeUploadsLeft: 0,
+  freeMessagesLeft: 0,
+  freeMaxMb: 5,
+  guestTtlHours: 24,
 };
+
+const MAX_FILE_MB = 20;
+function maxUploadMb() {
+  return (!state.loggedIn && !state.hasGeminiKey) ? state.freeMaxMb : MAX_FILE_MB;
+}
 
 // ── Init ───────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
@@ -57,17 +68,15 @@ async function bootstrapAuth() {
     if (data.logged_in) {
       state.loggedIn = true;
       state.user     = data.user;
-      await checkGeminiStatus();
-      renderAuthUI();
-      loadSessions();
     } else {
       state.loggedIn = false;
-      renderAuthUI();
     }
   } catch (e) {
     console.error("Session check failed:", e);
-    renderAuthUI();
   }
+  await checkGeminiStatus();
+  renderAuthUI();
+  loadSessions();
 }
 
 function renderAuthUI() {
@@ -79,12 +88,18 @@ function renderAuthUI() {
     area.innerHTML = `<button class="btn btn-block ins-signin-btn" onclick="showAuthModal()">
       <i class="fa-solid fa-right-to-bracket"></i> <span class="account-text">Sign In</span>
     </button>`;
+    // Guests may add a temporary Gemini key
     const apikeySection = document.getElementById("sidebarApikeySection");
-    if (apikeySection) apikeySection.style.display = "none";
-    const nokeyBanner = document.getElementById("nokeyBanner");
-    if (nokeyBanner) nokeyBanner.classList.remove("visible");
+    if (apikeySection) apikeySection.style.display = "block";
+    const hint = document.getElementById("apikeyGuestHint");
+    if (hint) hint.style.display = "block";
+    updateApikeyDot();
+    renderGuestBanner();
     return;
   }
+  const hint = document.getElementById("apikeyGuestHint");
+  if (hint) hint.style.display = "none";
+  renderGuestBanner();
 
   const nameParts = (state.user.name || "?").trim().split(/\s+/);
   const initials = (nameParts.length > 1 ? nameParts[0][0] + nameParts[nameParts.length - 1][0] : (state.user.name || "?").slice(0, 2)).toUpperCase();
@@ -269,7 +284,7 @@ async function doSignup() {
     if (data.status === "success") {
       state.loggedIn = true;
       state.user     = data.user;
-      state.hasGeminiKey = false;
+      await checkGeminiStatus();   // a guest key added before signup still works
       hideAuthModal();
       renderAuthUI();
       loadSessions();
@@ -304,7 +319,9 @@ async function doLogout() {
   state.hasGeminiKey = false;
   state.currentSessionId = null;
   state.currentSession = null;
+  state.sessions = [];
 
+  await checkGeminiStatus();
   renderAuthUI();
 
   // UI cleanup
@@ -371,15 +388,53 @@ function togglePwd(inputId, btn) {
 // ── API Key Management ───────────────────────────────────────────
 async function checkGeminiStatus() {
   try {
-    const res  = await fetch("/api/keys/check", { credentials: 'include' });
+    const res  = await fetch("/infinsight/guest/status/", { credentials: 'include' });
     const data = await res.json();
     if (data.status === "success") {
-      state.hasGeminiKey = !!data.keys?.gemini;
+      state.hasGeminiKey     = !!data.has_own_key;
+      state.keySource        = data.key_source;
+      state.freeUploadsLeft  = data.free_uploads_left;
+      state.freeMessagesLeft = data.free_messages_left;
+      state.freeMaxMb        = data.free_max_file_mb;
+      state.guestTtlHours    = data.guest_ttl_hours;
     }
   } catch (e) {
     state.hasGeminiKey = false;
   }
   updateApikeyDot();
+  renderGuestBanner();
+}
+
+function renderGuestBanner() {
+  const banner = document.getElementById("guestBanner");
+  const text = document.getElementById("guestBannerText");
+  const mb = maxUploadMb();
+  const dh = document.getElementById("welcomeDropHint");
+  if (dh) dh.textContent = `CSV, Excel, or PDF (max. ${mb}MB)`;
+  const mh = document.getElementById("modalDropHint");
+  if (mh) mh.textContent = `CSV, Excel (.xlsx/.xls), PDF — max ${mb}MB`;
+  if (!banner || !text) return;
+  if (state.loggedIn) { banner.classList.remove("visible"); return; }
+
+  const ttl = state.guestTtlHours;
+  if (state.hasGeminiKey) {
+    text.innerHTML = `<strong>Guest mode</strong> with your API key — unlimited files &amp; chat. ` +
+      `Your files and chats are deleted after ${ttl} hours. ` +
+      `<button type="button" class="ins-nokey-link" onclick="showAuthModal()">Sign in</button> to keep your key.`;
+  } else {
+    const u = state.freeUploadsLeft, m = state.freeMessagesLeft;
+    text.innerHTML = `<strong>Guest mode</strong> — ${u} free upload${u === 1 ? '' : 's'} (max ${state.freeMaxMb}MB) ` +
+      `and ${m} free message${m === 1 ? '' : 's'} left. Data is deleted after ${ttl} hours. ` +
+      `<button type="button" class="ins-nokey-link" onclick="showAuthModal()">Sign in</button> ` +
+      `and add your Gemini key to continue for more.`;
+  }
+  banner.classList.add("visible");
+}
+
+function onFreeLimit(message) {
+  notify(message || "Free limit reached. Add your Gemini API key or sign in.", "error");
+  checkGeminiStatus();
+  focusApiKeyInput();
 }
 
 function updateApikeyDot() {
@@ -414,7 +469,8 @@ async function saveGeminiKey() {
   btn.textContent = "Saving…";
 
   try {
-    const res  = await fetch("/api/keys/save", {
+    const url = state.loggedIn ? "/api/keys/save" : "/infinsight/guest/key/";
+    const res  = await fetch(url, {
       method:  "POST",
       headers: { 
         "Content-Type": "application/json",
@@ -426,10 +482,9 @@ async function saveGeminiKey() {
     const data = await res.json();
 
     if (data.status === "success") {
-      state.hasGeminiKey = true;
       input.value = "";
-      updateApikeyDot();
-      notify("Gemini API key saved ✓", "success");
+      await checkGeminiStatus();
+      notify(state.loggedIn ? "Gemini API key saved ✓" : "Key saved for this browser (24 hours) ✓", "success");
     } else {
       notify(data.message || "Failed to save key.", "error");
     }
@@ -520,12 +575,17 @@ function renderSessionsList() {
     const icon = fileIcon(s.file_type);
     const msgs = s.message_count;
     const when = new Date(s.updated_at).toLocaleDateString();
+    let expiry = "";
+    if (s.expires_at) {
+      const hrs = Math.max(0, Math.ceil((new Date(s.expires_at) - Date.now()) / 3600000));
+      expiry = ` · <span class="ins-session-expiry" title="Temporary guest session">deletes in ${hrs}h</span>`;
+    }
 
     item.innerHTML = `
       <div class="ins-session-icon ${s.file_type}"><i class="${icon}"></i></div>
       <div class="ins-session-info">
         <div class="ins-session-name">${esc(s.session_name)}</div>
-        <div class="ins-session-meta">${msgs} msg${msgs !== 1 ? 's' : ''} · ${when}</div>
+        <div class="ins-session-meta">${msgs} msg${msgs !== 1 ? 's' : ''} · ${when}${expiry}</div>
       </div>
       <div class="ins-status-dot ${s.status}"></div>
       <button class="ins-session-del" onclick="deleteSession('${s.session_id}', event)" title="Delete">
@@ -865,8 +925,10 @@ async function sendInsMessage() {
 
     if (!res.ok) {
       removeTyping();
-      appendMessage("ai", "HTTP Error " + res.status);
+      const err = await res.json().catch(() => ({}));
+      appendMessage("ai", err.message || ("HTTP Error " + res.status));
       scrollToBottom();
+      if (err.code === "free_limit" || err.code === "no_key") onFreeLimit(err.message);
       return;
     }
 
@@ -895,6 +957,11 @@ async function sendInsMessage() {
                  appendMessage("ai", "" + data.reply);
               } else {
                  appendMessage("ai", data.reply, data.model);
+              }
+              if (typeof data.free_messages_left === "number") {
+                state.freeMessagesLeft = data.free_messages_left;
+                renderGuestBanner();
+                if (data.free_messages_left === 0) onFreeLimit("That was your last free message. Add your Gemini key or sign in to continue.");
               }
               await loadSessions();
               renderSessionsList();
@@ -941,8 +1008,9 @@ function insToggleSend() {
 // ── Upload gate (auth + API key checks) ──────────────────────────
 function handleUploadClick() {
   if (!state.loggedIn) {
-    notify("Please sign in to upload a file.", "info");
-    showAuthModal();
+    // Guest: own key → unlimited; otherwise the free upload
+    if (state.hasGeminiKey || state.freeUploadsLeft > 0) { openUploadModal(); return; }
+    onFreeLimit("You have used your free upload. Add your Gemini API key or sign in to upload more.");
     return;
   }
   if (!state.hasGeminiKey) {
@@ -998,7 +1066,13 @@ function applySelectedFile(file) {
   const allowed = ["csv", "xlsx", "xls", "pdf"];
   const ext = file.name.split(".").pop().toLowerCase();
   if (!allowed.includes(ext)) { notify(`File type ".${ext}" not supported.`, "error"); return; }
-  if (file.size > 20 * 1024 * 1024) { notify("File too large. Max 20MB.", "error"); return; }
+  const maxMb = maxUploadMb();
+  if (file.size > maxMb * 1024 * 1024) {
+    notify(maxMb < MAX_FILE_MB
+      ? `Free upload is limited to ${maxMb}MB. Add your Gemini key for up to ${MAX_FILE_MB}MB.`
+      : `File too large. Max ${maxMb}MB.`, "error");
+    return;
+  }
 
   state.selectedFile = file;
 
@@ -1061,12 +1135,14 @@ async function submitUpload() {
     if (data.status === "success") {
       notify("File uploaded! Indexing started…", "success");
       closeUploadModal();
+      checkGeminiStatus();
       await loadSessions();
       renderSessionsList();
       // Auto-open the new session
       openSession(data.session.session_id);
     } else {
-      notify(data.message || "Upload failed.", "error");
+      if (data.code === "free_limit") { closeUploadModal(); onFreeLimit(data.message); }
+      else notify(data.message || "Upload failed.", "error");
       if (btn) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Start Analysis';

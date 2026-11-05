@@ -35,6 +35,18 @@
 .ins-nokey-banner i { margin-top: 2px; }
 .ins-nokey-link { border: 0; background: none; padding: 0; color: inherit; font-weight: 700; text-decoration: underline; font-size: inherit; }
 
+/* Guest (non-login) mode */
+.ins-guest-banner {
+  display: none; gap: 10px; align-items: flex-start;
+  margin: 4px 0 8px; padding: 10px 12px; border-radius: var(--radius);
+  background: var(--accent-soft); color: var(--text-2); font-size: var(--fs-xs); line-height: 1.5;
+}
+.ins-guest-banner.visible { display: flex; }
+.ins-guest-banner i { margin-top: 2px; color: var(--accent); }
+.ins-guest-banner strong { color: var(--text); }
+.ins-apikey-hint { margin-top: 6px; font-size: 0.7rem; color: var(--text-faint); line-height: 1.4; }
+.ins-session-expiry { color: var(--warning); }
+
 .ins-sessions-list { display: flex; flex-direction: column; gap: 1px; }
 .ins-sessions-empty { padding: 22px 12px; text-align: center; color: var(--text-faint); font-size: var(--fs-xs); line-height: 1.6; }
 .ins-sessions-empty i { font-size: 1.4rem; margin-bottom: 8px; display: block; }

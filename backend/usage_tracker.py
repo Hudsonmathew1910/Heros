@@ -34,6 +34,66 @@ def increment_baymax_usage(user_key: str) -> int:
     """
     return increment_halo_usage(f"baymax_{user_key}")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Guest (non-login) quotas
+# ─────────────────────────────────────────────────────────────────────────────
+# Every guest quota is tracked twice:
+#   1. per guest id   — a random id stored in the Django session (survives login)
+#   2. per IP per day — stops incognito / cookie-clearing / cookieless clients
+# A guest is blocked as soon as EITHER counter reaches the limit.
+
+GUEST_CHAT_LIMIT = 5             # Baymax messages on the main chat
+INF_GUEST_UPLOAD_LIMIT = 1       # Infinsight free uploads (no own key)
+INF_GUEST_CHAT_LIMIT = 5         # Infinsight free messages (no own key)
+
+
+def get_guest_id(request) -> str:
+    """Stable random id for this browser session. Kept across login (session is not flushed on login)."""
+    import uuid
+    gid = request.session.get('guest_id')
+    if not gid:
+        gid = uuid.uuid4().hex
+        request.session['guest_id'] = gid
+    return gid
+
+
+def get_guest_ip(request) -> str:
+    """
+    Client IP for quota purposes. Uses the right-most X-Forwarded-For entry
+    added by our own proxy (GUEST_PROXY_DEPTH hops, default 1), because the
+    left-most entry can be forged by the client.
+    """
+    from django.conf import settings
+    depth = int(getattr(settings, 'GUEST_PROXY_DEPTH', 1) or 0)
+    xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    if depth > 0 and xff:
+        parts = [p.strip() for p in xff.split(',') if p.strip()]
+        if parts:
+            return parts[-depth] if len(parts) >= depth else parts[0]
+    return request.META.get('REMOTE_ADDR', '') or 'unknown'
+
+
+def _guest_counter_keys(request, bucket: str) -> list:
+    from django.utils import timezone
+    day = timezone.now().strftime('%Y%m%d')
+    return [
+        f"{bucket}_g_{get_guest_id(request)}",
+        f"{bucket}_ip_{get_guest_ip(request)}_{day}",
+    ]
+
+
+def guest_remaining(request, bucket: str, limit: int) -> int:
+    """How many free uses this guest has left in `bucket`."""
+    used = max(get_halo_usage(k) for k in _guest_counter_keys(request, bucket))
+    return max(0, limit - used)
+
+
+def guest_consume(request, bucket: str) -> None:
+    """Record one use in `bucket` for this guest (both counters)."""
+    for k in _guest_counter_keys(request, bucket):
+        increment_halo_usage(k)
+
+
 def get_client_ip(request) -> str:
     """
     Extract client IP address from Django HTTP request.

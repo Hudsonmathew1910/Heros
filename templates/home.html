@@ -77,13 +77,13 @@
 
       <div class="model-picker">
         <button type="button" class="model-picker-btn" id="modelPickerBtn" data-menu="modelMenu" aria-haspopup="true" aria-expanded="false">
-          <span class="mp-brand">Heros</span><span id="modelPickerName">Halo 3.6</span><i class="fa-solid fa-chevron-down"></i>
+          <span class="mp-brand">Heros</span><span id="modelPickerName">Baymax 4.5</span><i class="fa-solid fa-chevron-down"></i>
         </button>
         <div class="menu model-menu" id="modelMenu" data-autoclose></div>
         <div class="model-select-group">
           <select class="inline-model-select sr-only" id="modelSelect" onchange="onModelChange()" aria-label="Model" tabindex="-1">
-            <option value="Baymax">Baymax 4.5</option>
-            <option value="Halo" selected>Halo 3.6</option>
+            <option value="Baymax" selected>Baymax 4.5</option>
+            <option value="Halo">Halo 3.6</option>
             <option value="ZORVIN">ZORVIN</option>
           </select>
         </div>
@@ -163,10 +163,10 @@
                   <i class="fa-solid fa-plus"></i>
                 </button>
                 <div class="menu plus-menu" id="plusMenu">
-                  <button type="button" class="menu-item" onclick="triggerAttach()"><i class="fa-solid fa-paperclip"></i>Add files <span class="menu-hint">PDF, DOC, TXT</span></button>
-                  <div class="menu-sep"></div>
-                  <button type="button" class="menu-item" onclick="setMode('websearch')"><i class="fa-solid fa-globe"></i>Search the web</button>
-                  <button type="button" class="menu-item" onclick="setModeCodingAndPrompt()"><i class="fa-solid fa-code"></i>Write code</button>
+                  <button type="button" class="menu-item authed-only" onclick="triggerAttach()"><i class="fa-solid fa-paperclip"></i>Add files <span class="menu-hint">PDF, DOC, TXT</span></button>
+                  <div class="menu-sep authed-only"></div>
+                  <button type="button" class="menu-item authed-only" onclick="setMode('websearch')"><i class="fa-solid fa-globe"></i>Search the web</button>
+                  <button type="button" class="menu-item authed-only" onclick="setModeCodingAndPrompt()"><i class="fa-solid fa-code"></i>Write code</button>
                   <div class="menu-sep"></div>
                   <button type="button" class="menu-item mute-btn" id="muteBtn" onclick="toggleMute()" title="AI voice muted — click to unmute">
                     <i class="fa-solid fa-volume-xmark" id="muteIcon"></i>Read replies aloud<span class="menu-hint mute-state" id="muteState">Off</span>
@@ -176,13 +176,13 @@
               </div>
               <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt" multiple onchange="handleFiles(this.files)" hidden />
 
-              <button type="button" id="searchToggleBtn" class="tool-chip active" onclick="toggleSearchMode()" data-tip="Web search" data-tip-pos="top">
+              <button type="button" id="searchToggleBtn" class="tool-chip active guest-locked" onclick="toggleSearchMode()" data-tip="Web search" data-tip-pos="top">
                 <i class="fa-solid fa-globe"></i><span>Search</span>
               </button>
-              <button type="button" id="codeToggleBtn" class="tool-chip" onclick="toggleCodingMode()" data-tip="Coding mode" data-tip-pos="top">
+              <button type="button" id="codeToggleBtn" class="tool-chip guest-locked" onclick="toggleCodingMode()" data-tip="Coding mode" data-tip-pos="top">
                 <i class="fa-solid fa-code"></i><span>Code</span>
               </button>
-              <button type="button" id="fastModeBtn" class="tool-chip fast-btn" onclick="toggleFastModeBtn(this)" data-tip="Fast response (requires Groq API key)" data-tip-pos="top">
+              <button type="button" id="fastModeBtn" class="tool-chip fast-btn guest-locked" onclick="toggleFastModeBtn(this)" data-tip="Fast response (requires Groq API key)" data-tip-pos="top">
                 <i class="fa-solid fa-bolt"></i><span>Fast</span>
               </button>
             </div>
@@ -195,7 +195,7 @@
               <div class="tooltip-container talk-pill" id="talkTooltipContainer" onclick="toggleInlineVoiceChat()" role="button" tabindex="0" title="Voice Conversation">
                 <span class="tooltip" id="talkTooltip">Say Hello to</span>
                 <span class="text" id="talkText"><i class="fa-solid fa-microphone-lines"></i> Talk</span>
-                <span id="voiceModelName" class="voice-model-name">Halo 3.6</span>
+                <span id="voiceModelName" class="voice-model-name">Baymax 4.5</span>
               </div>
               <button type="button" id="sendMicBtn" onclick="handleSendMicClick()" class="mic-btn" title="Talk to AI" aria-label="Send or dictate">
                 <i id="sendMicIcon" class="fa-solid fa-microphone"></i>
@@ -206,7 +206,7 @@
       </div>
 
       <div class="suggestion-chips">
-        <button type="button" class="chip" onclick="setModeCodingAndPrompt()"><i class="fa-solid fa-code"></i> Code</button>
+        <button type="button" class="chip authed-only" onclick="setModeCodingAndPrompt()"><i class="fa-solid fa-code"></i> Code</button>
         <button type="button" class="chip" onclick="fillSuggestion('Summarize this text:')"><i class="fa-solid fa-align-left"></i> Summarize</button>
         <button type="button" class="chip" onclick="fillSuggestion('Explain this concept:')"><i class="fa-solid fa-brain"></i> Explain</button>
         <button type="button" class="chip" onclick="fillSuggestion('Write a blog:')"><i class="fa-solid fa-pen-nib"></i> Write</button>
@@ -674,5 +674,6 @@
 {% endblock %}
 
 {% block scripts %}
+  {{ dev_models|json_script:"devModelsData" }}
   <script src="{% static 'heros/js/chat.js' %}" defer></script>
 {% endblock %}

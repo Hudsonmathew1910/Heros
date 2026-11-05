@@ -18,12 +18,13 @@ class NlpTests(TestCase):
         self.assertEqual(get_intent("remind me to complete work at 5pm"), "task")
         self.assertEqual(get_intent("ok"), "chat")
 
+from backend.hero_model import ProviderError, ModelError
+
+
 class HeroModelTests(TestCase):
     @patch('backend.hero_model.requests.post')
     @patch('google.genai.Client')
-    @patch('backend.hero_model.Baymax._enrich_with_web_search')
-    def test_baymax_fallback(self, mock_enrich, mock_client_class, mock_requests):
-        mock_enrich.side_effect = lambda text, task: text
+    def test_baymax_fallback(self, mock_client_class, mock_requests):
         # Mock Gemini Client to raise an exception
         mock_client = MagicMock()
         mock_client.models.generate_content.side_effect = Exception("Gemini quota exceeded")
@@ -91,10 +92,9 @@ class HaloModelTests(TestCase):
                 self.assertEqual(halo.parse_smart_output("{not valid json}"), "{not valid json}")
 
     @patch('backend.halo.InferenceClient')
-    @patch('backend.halo.Halo._enrich_with_web_search')
-    def test_halo_fallback_routing(self, mock_enrich, mock_client_class):
-        """Test that Halo successfully falls back to Llama 3.3 when the primary model fails."""
-        mock_enrich.side_effect = lambda text: text
+    @patch('backend.halo.Halo._agentic_search_check', return_value=None)
+    def test_halo_fallback_routing(self, mock_search_check, mock_client_class):
+        """Test that Halo successfully falls back to its fallback model when the primary model fails."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
         
@@ -110,78 +110,61 @@ class HaloModelTests(TestCase):
             
             self.assertEqual(response, "Hello from Llama 3.3 fallback!")
             self.assertEqual(mock_client.chat_completion.call_count, 2)
-            # Verify primary model was tried first
-            mock_client.chat_completion.assert_any_call(
-                model=Halo.PRIMARY_MODEL,
-                messages=[
-                    {"role": "system", "content": Halo.TEXT_PROMPT},
-                    {"role": "user", "content": "Hello"}
-                ],
-                max_tokens=Halo.DEFAULT_MAX_TOKENS,
-                temperature=Halo.DEFAULT_TEMPERATURE
-            )
-            # Verify fallback model was tried second
-            mock_client.chat_completion.assert_called_with(
-                model=Halo.FALLBACK_MODEL,
-                messages=[
-                    {"role": "system", "content": Halo.TEXT_PROMPT},
-                    {"role": "user", "content": "Hello"}
-                ],
-                max_tokens=Halo.DEFAULT_MAX_TOKENS,
-                temperature=Halo.DEFAULT_TEMPERATURE
-            )
+            # Verify primary model was tried first, then the fallback model
+            calls = mock_client.chat_completion.call_args_list
+            self.assertEqual([c.kwargs["model"] for c in calls], [Halo.PRIMARY_MODEL, Halo.FALLBACK_MODEL])
+            for c in calls:
+                msgs = c.kwargs["messages"]
+                self.assertEqual(msgs[0]["role"], "system")
+                self.assertIn(Halo.TEXT_PROMPT, msgs[0]["content"])  # base prompt + runtime context
+                self.assertEqual(msgs[-1], {"role": "user", "content": "Hello"})
+                self.assertEqual(c.kwargs["max_tokens"], Halo.DEFAULT_MAX_TOKENS)
+                self.assertEqual(c.kwargs["temperature"], Halo.DEFAULT_TEMPERATURE)
 
 
 class HeroModelFastRoutingTests(TestCase):
-    @patch('backend.hero_model.Baymax._call_groq')
-    @patch('backend.hero_model.Baymax._with_fallback')
-    def test_fast_route_provider_error(self, mock_fallback, mock_call_groq):
-        """Test that a GroqProviderError on the first model immediately falls back to normal fallbacks."""
-        from backend.hero_model import GroqProviderError
-        from backend.fast import run_fast_route
-        
-        mock_call_groq.side_effect = GroqProviderError("Rate limit / traffic exceeded")
-        mock_fallback.return_value = "Fallback Response"
-        
-        baymax = Baymax(
-            gemini_key="gemini-key",
-            openrouter_key="or-key",
-            groq_key="groq-key",
-            chat_history=[]
-        )
-        baymax.is_fast = True
-        
-        response = run_fast_route(baymax, "Hello", max_tokens=100, task="text_chat")
-        
-        self.assertEqual(response, "Fallback Response")
-        self.assertEqual(mock_call_groq.call_count, 1)  # Only the first model was tried
-        mock_fallback.assert_called_once_with('gemini-3.1-flash-lite', "Hello", 100, "fallback", "text_chat")
+    """
+    Fast mode runs Gemini, OpenRouter and Groq in parallel. Inside each provider,
+    a ModelError tries the next model; a ProviderError stops that provider.
+    Gemini/OpenRouter are mocked to fail so only the Groq behaviour is under test
+    (and no real network calls are made).
+    """
 
-    @patch('backend.hero_model.Baymax._call_groq')
-    @patch('backend.hero_model.Baymax._with_fallback')
-    def test_fast_route_model_error(self, mock_fallback, mock_call_groq):
-        """Test that a GroqModelError on the first model allows sequential try of the remaining Groq models."""
-        from backend.hero_model import GroqModelError
-        from backend.fast import run_fast_route
-        
-        mock_call_groq.side_effect = [
-            GroqModelError("Model not found"),
-            "Hello from second Groq model!"
-        ]
-        
-        baymax = Baymax(
-            gemini_key="gemini-key",
-            openrouter_key="or-key",
-            groq_key="groq-key",
-            chat_history=[]
-        )
+    def _baymax(self):
+        baymax = Baymax(gemini_key="gemini-key", openrouter_key="or-key", groq_key="groq-key", chat_history=[])
         baymax.is_fast = True
-        
-        response = run_fast_route(baymax, "Hello", max_tokens=100, task="text_chat")
-        
+        return baymax
+
+    @patch('backend.hero_model.Baymax._call_openrouter', side_effect=ProviderError("or down"))
+    @patch('backend.hero_model.Baymax._call_gemini', side_effect=ProviderError("gemini down"))
+    @patch('backend.hero_model.Baymax._call_groq')
+    def test_fast_route_provider_error(self, mock_call_groq, mock_gemini, mock_or):
+        """A ProviderError on the first Groq model stops Groq; with every provider down, fast mode reports failure."""
+        from backend.fast import run_fast_route
+
+        mock_call_groq.side_effect = ProviderError("Rate limit / traffic exceeded")
+
+        response = run_fast_route(self._baymax(), "Hello", max_tokens=100, task="text_chat")
+
+        self.assertEqual(response, "All fast models failed. Please try again later.")
+        self.assertEqual(mock_call_groq.call_count, 1)  # remaining Groq models were not tried
+
+    @patch('backend.hero_model.Baymax._call_openrouter', side_effect=ProviderError("or down"))
+    @patch('backend.hero_model.Baymax._call_gemini', side_effect=ProviderError("gemini down"))
+    @patch('backend.hero_model.Baymax._call_groq')
+    def test_fast_route_model_error(self, mock_call_groq, mock_gemini, mock_or):
+        """A ModelError on the first Groq model moves on to the next Groq model."""
+        from backend.fast import run_fast_route
+
+        mock_call_groq.side_effect = [
+            ModelError("Model not found"),
+            "Hello from second Groq model!",
+        ]
+
+        response = run_fast_route(self._baymax(), "Hello", max_tokens=100, task="text_chat")
+
         self.assertEqual(response, "Hello from second Groq model!")
-        self.assertEqual(mock_call_groq.call_count, 2)  # First failed, second succeeded
-        self.assertFalse(mock_fallback.called)  # No need for fallback
+        self.assertEqual(mock_call_groq.call_count, 2)  # first failed, second succeeded
 
 
 class HaloUsageLimitTests(TestCase):
@@ -202,39 +185,19 @@ class HaloUsageLimitTests(TestCase):
         increment_halo_usage(user_key)
         self.assertEqual(get_halo_usage(user_key), 2)
 
-    @patch('backend.halo.InferenceClient')
-    def test_chat_api_halo_limit_enforced(self, mock_client_class):
+    def test_chat_api_halo_blocked_for_guests(self):
         from django.test import Client
-        from backend.usage_tracker import HALO_MAX_LIMIT, increment_halo_usage
-        
-        client = Client()
-        
-        # Initialize session to obtain session_key
-        session = client.session
-        session.save()
-        session_key = session.session_key
-        user_key = f"anon_{session_key}"
-        
-        # Increment to max limit
-        for _ in range(HALO_MAX_LIMIT):
-            increment_halo_usage(user_key)
-            
-        # Send query to chat_api
-        response = client.post(
+
+        response = Client().post(
             '/api/chat',
-            data=json.dumps({
-                'message': 'Hello Halo',
-                'model': 'Halo',
-                'mode': 'text',
-                'session_id': 'test_session',
-            }),
+            data=json.dumps({'message': 'Hello Halo', 'model': 'Halo', 'mode': 'text'}),
             content_type='application/json',
-            HTTP_X_SESSION_ID='test_session'
         )
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertIn("maximum message limit for Halo", data.get("reply", ""))
+        self.assertTrue(data.get("login_required"))
+        self.assertIn("Halo is only available after you log in", data.get("reply", ""))
 
     def test_chat_api_halo_blocked_features(self):
         from django.test import Client
@@ -255,39 +218,29 @@ class HaloUsageLimitTests(TestCase):
         
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertIn("Access Restricted", data.get("reply", ""))
-        self.assertIn("coding or file handling features in Halo", data.get("reply", ""))
+        self.assertTrue(data.get("login_required"))
+        self.assertIn("Login Required", data.get("reply", ""))
 
     def test_baymax_limit_enforced(self):
         from django.test import Client
-        from backend.usage_tracker import BAYMAX_MAX_LIMIT, increment_baymax_usage
-        
-        client = Client()
-        session = client.session
-        session.save()
-        session_key = session.session_key
-        user_key = f"anon_{session_key}"
-        
-        # Increment Baymax usage to maximum limit
-        for _ in range(BAYMAX_MAX_LIMIT):
-            increment_baymax_usage(user_key)
-            
-        # Send query to chat_api for Baymax
-        response = client.post(
+        from django.utils import timezone
+        from backend.usage_tracker import GUEST_CHAT_LIMIT, increment_halo_usage
+
+        # Fill this IP's daily guest allowance (Django test client IP = 127.0.0.1)
+        ip_key = f"baymax_ip_127.0.0.1_{timezone.now().strftime('%Y%m%d')}"
+        for _ in range(GUEST_CHAT_LIMIT):
+            increment_halo_usage(ip_key)
+
+        response = Client().post(
             '/api/chat',
-            data=json.dumps({
-                'message': 'Hello Baymax',
-                'model': 'Baymax',
-                'mode': 'text',
-                'session_id': 'test_session_baymax',
-            }),
+            data=json.dumps({'message': 'Hello Baymax', 'model': 'Baymax', 'mode': 'text'}),
             content_type='application/json',
-            HTTP_X_SESSION_ID='test_session_baymax'
         )
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertIn("maximum message limit for Baymax", data.get("reply", ""))
+        self.assertTrue(data.get("limit_reached"))
+        self.assertIn("Free limit reached", data.get("reply", ""))
 
 
 from django.test import TestCase, TransactionTestCase
@@ -396,7 +349,7 @@ class UsageTrackingIsolationTests(TransactionTestCase):
             HTTP_AUTHORIZATION=f"Bearer {raw_key}"
         )
         self.assertEqual(response_comp.status_code, 403)
-        self.assertIn("Read-only API keys cannot make chat completion requests", response_comp.json().get("error", {}).get("message", ""))
+        self.assertIn("read-only permissions", response_comp.json().get("error", {}).get("message", ""))
 
         # 2. Read-only key CAN access usage telemetry (200 OK)
         response_usage = client.get(

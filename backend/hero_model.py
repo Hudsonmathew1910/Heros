@@ -257,13 +257,19 @@ class Baymax:
         db_lookup_time:   float = 0.0,
         custom_temperature: float | None = None,
         custom_max_tokens:  int | None = None,
+        # Guests (non-login) may not use live web search
+        allow_search:       bool = True,
     ):
+        self.allow_search = allow_search
         self.custom_temperature = custom_temperature
         self.custom_max_tokens = custom_max_tokens
         self.db_lookup_time = db_lookup_time
         self._initial_steps_logged = False
         self.t_start = time.time()
         self.gemini_keys = []
+        # True when running on the server's own Gemini keys (guests / users without a Gemini key):
+        # use fast, cheap models first instead of the heavy gemini-3.6-flash.
+        self.using_server_gemini = not gemini_key
         if gemini_key:
             self.gemini_keys.append(gemini_key)
         else:
@@ -294,43 +300,9 @@ class Baymax:
         self.openrouter_url = "https://openrouter.ai/api/v1/chat/completions"
         self.groq_url = "https://api.groq.com/openai/v1/chat/completions"
 
-        self.models = {
-            'text_chat':       'gemini-3.5-flash-lite',
-            'voice_chat':      'gemini-3.5-flash-lite',
-            'file_analysis':   'gemini-3.5-flash-lite',
-            'coding':          'gemini-3.6-flash',
-            'live_screen':     'gemini-3.6-flash',
-            'task_automation': 'nvidia/nemotron-3-super-120b-a12b:free',
-            'web_search':      'gemini-3.5-flash-lite',
-            'web_search_preprocessor':      'gemini-3.5-flash-lite',
-            'zeno_plus':       'gemini-3.5-flash-lite',
-            'zeno_eco':        'gemini-3.5-flash-lite',
-            'zeno_voice':      'gemini-3.5-flash-lite',
-            'zeno_shadow':     'openai/gpt-oss-20b',
-            'fallback': [
-                'nvidia/nemotron-3-super-120b-a12b:free',
-                'meta-llama/llama-3.2-3b-instruct:free',
-                'google/gemma-2-9b-it:free',
-                'nvidia/nemotron-3-ultra-550b-a55b:free',
-                'nvidia/nemotron-3.5-lightning:free',
-            ],
-            'fallback_with_groq': [
-                "openai/gpt-oss-20b",
-                "qwen/qwen3.8-27b",
-                "openai/gpt-oss-120b",
-                "allam-2-7b",
-            ],
-            'fallback_with_gemini': [
-                'gemini-3.6-flash',
-                'gemini-3.5-flash',
-                'gemini-3.5-flash-lite',
-                'gemini-3.1-flash-lite',
-                'gemini-2.5-flash',
-                'gemini-2.5-flash-lite',
-                'gemini-flash-latest',
-            ],
-
-        }
+        # All model names live in backend/llm_models.json
+        from backend import llm_registry
+        self.models = llm_registry.baymax_models()
 
         logger.debug(
             "Baymax initialised | temporary=%s | superuser=%s | raw_history_len=%d",
@@ -940,7 +912,8 @@ To start chatting, please configure your API Keys in your Heros profile settings
         user_groq = self.groq_key
 
         # Lists of models
-        list_gemini = self.models.get("fallback_with_gemini", [])
+        list_gemini = self.models.get(
+            "fallback_with_gemini_fast" if getattr(self, "using_server_gemini", False) else "fallback_with_gemini", [])
         list_or = self.models.get(fallback_key, [])
         list_groq = self.models.get("fallback_with_groq", [])
 
@@ -1255,6 +1228,12 @@ To start chatting, please configure your API Keys in your Heros profile settings
         """
         Web search handler. Now takes the raw context directly and summarizes it in the final AI call.
         """
+        if not getattr(self, 'allow_search', True):
+            # Single choke point: every SEARCH_REQUIRED route ends up here.
+            return (
+                "This question needs live information from the web, and **web search is only "
+                "available after you log in**.\n\nPlease log in and add your API keys to use web search."
+            )
         try:
             import logging
             logger = logging.getLogger("hero_ai.baymax")

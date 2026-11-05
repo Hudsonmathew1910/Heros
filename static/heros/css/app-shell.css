@@ -211,6 +211,8 @@ body { overflow: hidden; }
 /* ── Guest / authed visibility ─────────────────────────────── */
 body:not(.is-authed) .authed-only { display: none !important; }
 body.is-authed .guest-only { display: none !important; }
+/* Visible to guests but not usable (click shows a log-in prompt) */
+body:not(.is-authed) .guest-locked { opacity: 0.5; cursor: not-allowed; }
 
 /* Topbar auth buttons for guests */
 .topbar-auth { display: flex; gap: 8px; margin-left: 6px; }

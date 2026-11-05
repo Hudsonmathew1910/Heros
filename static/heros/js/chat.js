@@ -43,7 +43,7 @@
 let messages = [];
 let attachedFiles = [];
 let isLoading = false;
-let currentModel = 'Halo';
+let currentModel = 'Baymax';
 let inlineMicOn = false;
 let inlineRecog = null;
 let userMenuOpen = false;
@@ -444,16 +444,40 @@ function handleLoggedOutState() {
   const rowIn = $('userInfoRowLoggedIn'); if (rowIn) rowIn.style.display = 'none';
   const rowOut = $('userInfoRowLoggedOut'); if (rowOut) rowOut.style.display = 'flex';
 
+  // Guests: Baymax only, plain chat only (no search / code / files / fast / developer)
+  _resetGuestTools();
   const modelSelect = $('modelSelect');
   if (modelSelect) {
       Array.from(modelSelect.options).forEach(opt => {
-          if (opt.value !== 'Halo' && opt.value !== 'Baymax') opt.disabled = true;
+          opt.disabled = opt.value !== 'Baymax';
       });
-      if (modelSelect.value !== 'Halo' && modelSelect.value !== 'Baymax') {
-          modelSelect.value = 'Halo';
+      if (modelSelect.value !== 'Baymax') {
+          modelSelect.value = 'Baymax';
           onModelChange();
       }
   }
+  window.HerosShell?.syncModelPicker();
+}
+
+function _resetGuestTools() {
+  isSearchMode = false; isCodeMode = false; isFastMode = false; activeMode = null;
+  attachedFiles = [];
+  const ap = $('attachPreviewRow'); if (ap) ap.innerHTML = '';
+  ['searchToggleBtn', 'codeToggleBtn', 'fastModeBtn'].forEach(id => $(id)?.classList.remove('active'));
+  if (isDeveloperMode) {
+    isDeveloperMode = false;
+    const devSidebar = $('developerSidebar'); if (devSidebar) devSidebar.style.display = 'none';
+    const toggleBtn = $('devSidebarToggleBtn'); if (toggleBtn) toggleBtn.style.display = 'none';
+  }
+}
+
+/* Guests trying a login-only feature */
+function requireLogin(feature) {
+  if (currentUser) return false;
+  closePlusMenu?.();
+  showNotification(`${feature} is available after you log in.`, 'info');
+  showAuthScreen(); switchAuthTab('login');
+  return true;
 }
 
 function showAuthScreen() {
@@ -540,6 +564,9 @@ function loginUser(user) {
   const rowIn = $('userInfoRowLoggedIn'); if (rowIn) rowIn.style.display = 'flex';
   const rowOut = $('userInfoRowLoggedOut'); if (rowOut) rowOut.style.display = 'none';
 
+  // Restore the logged-in default (web search on)
+  isSearchMode = true; $('searchToggleBtn')?.classList.add('active');
+
   const modelSelect = $('modelSelect');
   if (modelSelect) {
       Array.from(modelSelect.options).forEach(opt => opt.disabled = false);
@@ -580,7 +607,7 @@ async function handleLogout() {
       const data = await getJsonResponse(res);
       if (data.status === 'success') {
         currentUser = null; closeUserMenu();
-        _setAuthedUI(false);
+        handleLoggedOutState();
         _syncSettingsUI();
         messages = []; attachedFiles = []; hasExistingApiKeys = false; hasGroqKey = false;
         updateFastModeDefault();
@@ -738,6 +765,7 @@ function syncFastModeVisibility(model) {
 }
 
 function toggleSearchMode() {
+  if (requireLogin('Web search')) return;
   isSearchMode = !isSearchMode;
   const btn = $('searchToggleBtn');
   if (btn) {
@@ -783,7 +811,7 @@ function onModelChange() {
       voiceModelSpan.textContent = select.options[select.selectedIndex].text;
     }
 
-    if (currentModel === 'Baymax' && !hasExistingApiKeys) {
+    if (currentModel === 'Baymax' && currentUser && !hasExistingApiKeys) {
         showNotification('Please add Gemini or OpenRouter API key in profile / settings / api key to use Baymax.', 'info');
     }
 
@@ -812,6 +840,7 @@ function activateChatBg() {
 let isFastMode = false;
 
 function toggleFastModeBtn(btn) {
+  if (requireLogin('Fast mode')) return;
   if (!isFastMode && !hasGroqKey) {
     showNotification('Please add Groq API key in profile / settings / api key for Fast response.', 'error');
     return;
@@ -835,6 +864,19 @@ function updateFastModeDefault() {
 }
 
 let currentAbortController = null;
+
+/* Guest quota feedback from /api/chat */
+function _handleGuestQuota(data) {
+  if (currentUser || !data) return;
+  if (data.limit_reached) {
+    setTimeout(() => { showAuthScreen(); switchAuthTab('login'); }, 1200);
+  } else if (typeof data.guest_remaining === 'number' && data.guest_remaining <= 2) {
+    const n = data.guest_remaining;
+    showNotification(n === 0
+      ? 'That was your last free message. Log in to keep chatting.'
+      : `${n} free message${n === 1 ? '' : 's'} left. Log in for unlimited chat.`, 'info');
+  }
+}
 
 async function sendMessage() {
   if (isLoading) return;
@@ -942,6 +984,7 @@ async function sendMessage() {
       };
       messages.push(aiMsg);
       renderMessage(aiMsg);
+      _handleGuestQuota(data);
 
       /* Auto-read AI responses aloud when enabled in settings */
       const ttsBlockedModes = ['coding', 'file_handle'];
@@ -1458,11 +1501,13 @@ document.addEventListener('click', (e) => {
 });
 
 function triggerAttach() {
+  if (requireLogin('File upload')) return;
   closePlusMenu();
   $('fileInput')?.click();
 }
 
 function toggleCodingMode() {
+  if (requireLogin('Coding mode')) return;
   isCodeMode = !isCodeMode;
   const btn = $('codeToggleBtn');
   if (btn) {
@@ -1472,6 +1517,7 @@ function toggleCodingMode() {
 
 function setMode(mode) {
   closePlusMenu();
+  if ((mode === 'websearch' || mode === 'coding') && requireLogin(mode === 'coding' ? 'Coding mode' : 'Web search')) return;
   if (mode === 'websearch') {
     isSearchMode = true;
     $('searchToggleBtn')?.classList.add('active');
@@ -1709,6 +1755,7 @@ function toggleSendBtn() {
 
 function handleFiles(files) {
   if (!files?.length) return;
+  if (requireLogin('File upload')) return;
   Array.from(files).forEach(file => {
     if (attachedFiles.length >= 5) { showNotification('Maximum 5 files allowed', 'warning'); return; }
     const item = { name: file.name, type: file.type, size: file.size, dataUrl: null };
@@ -2134,6 +2181,7 @@ async function _sendToAI(userText) {
       const aiMsg = { role: 'assistant', content: reply, mode: 'voice' };
       messages.push(aiMsg);
       const aiMsgRow = renderMessage(aiMsg);
+      _handleGuestQuota(data);
 
       currentAITextClean = _sanitiseForTTS(reply).toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
 
@@ -2667,33 +2715,17 @@ console.log('Heros loaded.');
 let isDeveloperMode = false;
 let devConfig = { provider: 'openrouter', model: '', saveHistory: true };
 
-const devModels = {
-  openrouter: [
-    'nvidia/nemotron-3-super-120b-a12b:free',
-    'meta-llama/llama-3.2-3b-instruct:free',
-    'google/gemma-2-9b-it:free',
-    'nvidia/nemotron-3-ultra-550b-a55b:free',
-    'nvidia/nemotron-3.5-lightning:free',
-    'custom'
-  ],
-  groq: [
-    'allam-2-7b',
-    'openai/gpt-oss-20b',
-    'qwen/qwen3.8-27b',
-    'openai/gpt-oss-120b',
-    'custom'
-  ],
-  gemini: [
-    'gemini-3.6-flash',
-    'gemini-3.5-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-3.1-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-flash-latest',
-    'custom'
-  ]
-};
+// Model lists come from backend/llm_models.json (rendered into the page as #devModelsData)
+const devModels = (() => {
+  let data = {};
+  try { data = JSON.parse(document.getElementById('devModelsData')?.textContent || '{}') || {}; } catch (_) {}
+  const withCustom = (list) => [...(Array.isArray(list) ? list : []), 'custom'];
+  return {
+    openrouter: withCustom(data.openrouter),
+    groq:       withCustom(data.groq),
+    gemini:     withCustom(data.gemini),
+  };
+})();
 
 function openDeveloperModal() {
   $('developerModal')?.classList.add('active');

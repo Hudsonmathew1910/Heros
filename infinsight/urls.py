@@ -7,6 +7,10 @@ urlpatterns = [
     # Main page
     path("", views.infinsight_page, name="infinsight_home"),
 
+    # Guest (non-login) status + temporary Gemini key
+    path("guest/status/", views.guest_status, name="infinsight_guest_status"),
+    path("guest/key/", views.guest_key, name="infinsight_guest_key"),
+
     # File upload + session creation
     path("upload/", views.upload_file, name="infinsight_upload"),
 
