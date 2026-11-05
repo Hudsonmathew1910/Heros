@@ -184,10 +184,17 @@ def choose_replacement(provider, old, taken=()):
         ok, latency, detail = cat.probe(provider, cand)
         if ok:
             return cand, latency, tried
-        if "HTTP 402" in detail or "HTTP 401" in detail:
-            # Account problem, not a model problem — no candidate can pass, so stop here.
-            tried.append(f"**{provider} account cannot run any model** ({detail[:110]}). "
-                         "Add credits / fix the key, then re-run.")
+        if any(code in detail for code in ("HTTP 401", "HTTP 402", "HTTP 403")):
+            # Account / key problem, not a model problem — no candidate can pass, so stop here.
+            if "HTTP 403" in detail and provider == "huggingface":
+                fix = ("The HF_TOKEN is not allowed to call Inference Providers. Create a token at "
+                       "huggingface.co/settings/tokens with the permission \"Make calls to Inference "
+                       "Providers\" and update the HF_TOKEN secret.")
+            elif "HTTP 402" in detail:
+                fix = "The account has no credits left. Add credits, then re-run."
+            else:
+                fix = "The API key was rejected. Update the secret, then re-run."
+            tried.append(f"**{provider} account cannot run any model** ({detail[:90]}). {fix}")
             break
         if "not supported by any provider you have enabled" in detail:
             detail = "served only by an inference provider not enabled in your HF settings"
