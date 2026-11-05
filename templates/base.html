@@ -6,8 +6,44 @@
   <title>{% block title %}Heros{% endblock %}</title>
   <meta name="description" content="{% block description %}Heros is your intelligent AI assistant — chat, code, search the web, analyze data and talk naturally.{% endblock %}" />
   <meta name="theme-color" content="#353B30" />
-  <link rel="icon" type="image/png" href="{% static 'images/Hero_ai.png' %}" />
-  <link rel="apple-touch-icon" href="{% static 'images/Hero_ai.png' %}" />
+  <!-- Favicons (square — Google requires a square icon, multiple of 48px) -->
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="48x48" href="{% static 'images/favicon/favicon-48.png' %}" />
+  <link rel="icon" type="image/png" sizes="96x96" href="{% static 'images/favicon/favicon-96.png' %}" />
+  <link rel="icon" type="image/png" sizes="192x192" href="{% static 'images/favicon/favicon-192.png' %}" />
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/favicon/apple-touch-icon.png' %}" />
+
+  <!-- Site name for Google Search, link previews -->
+  <meta property="og:site_name" content="Heros" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{% block og_title %}Heros — AI that refuses to go offline{% endblock %}" />
+  <meta property="og:description" content="Heros is your intelligent AI assistant — chat, code, search the web, analyze data and talk naturally." />
+  <meta property="og:url" content="https://hero-s-ai.alwaysdata.net{{ request.path }}" />
+  <meta property="og:image" content="https://hero-s-ai.alwaysdata.net{% static 'images/favicon/favicon-512.png' %}" />
+  <meta name="application-name" content="Heros" />
+  <meta name="apple-mobile-web-app-title" content="Heros" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://hero-s-ai.alwaysdata.net/#website",
+        "name": "Heros",
+        "alternateName": ["Heros AI", "Hero's AI"],
+        "url": "https://hero-s-ai.alwaysdata.net/"
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://hero-s-ai.alwaysdata.net/#organization",
+        "name": "Heros",
+        "url": "https://hero-s-ai.alwaysdata.net/",
+        "logo": "https://hero-s-ai.alwaysdata.net{% static 'images/favicon/favicon-512.png' %}",
+        "sameAs": ["https://github.com/Hudsonmathew1910/Heros"]
+      }
+    ]
+  }
+  </script>
   <script>
     (function () {
       try {
