@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load static %}
+{% block head %}
+  <link rel="stylesheet" href="{% static 'heros/css/app-shell.css' %}" />
+  {% block app_head %}{% endblock %}
+{% endblock %}
+{% block body %}
+<div class="app" id="app">
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="HerosShell.toggleSidebar()"></div>
+
+  <aside class="sidebar" id="sidebar" aria-label="Sidebar">
+    <div class="sb-head">
+      <a href="{% url 'landing' %}" class="sb-brand" title="Discover Heros">
+        <img src="{% static 'images/Hero_ai.png' %}" alt="" class="brand-logo" />
+        <span class="brand-word">Heros</span>
+      </a>
+      <button type="button" class="icon-btn sb-collapse" onclick="HerosShell.toggleSidebar()" data-tip="Toggle sidebar" aria-label="Toggle sidebar">
+        {% include "partials/icon_sidebar.html" %}
+      </button>
+    </div>
+
+    <div class="sb-primary">{% block sidebar_primary %}{% endblock %}</div>
+
+    {% block sidebar_features %}{% endblock %}
+
+    <div class="sb-scroll">{% block sidebar_list %}{% endblock %}</div>
+
+    <div class="sb-foot">{% block sidebar_footer %}{% endblock %}</div>
+  </aside>
+
+  <main class="main {% block main_class %}{% endblock %}" id="main">
+    {% block main %}{% endblock %}
+  </main>
+</div>
+{% block modals %}{% endblock %}
+{% endblock %}

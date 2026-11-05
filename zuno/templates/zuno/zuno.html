@@ -1,1181 +1,183 @@
+{% extends "layouts/app_shell.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zuno AI Music Assistant</title>
-    <link rel="icon" type="image/png" href="{% static 'images/Hero_ai.png' %}">
-    <!-- Use Google Fonts & FontAwesome -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,300..800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <style>
-        :root {
-            --bg-color: #09090b;
-            --primary-color: #3b82f6;
-            --secondary-color: #10b981;
-            --text-color: #fafafa;
-            --text-muted: #a1a1aa;
-            --glass-bg: rgba(24, 24, 27, 0.6);
-            --glass-border: rgba(255, 255, 255, 0.07);
-            
-            --bg: #09090b;
-            --surface: #18181b;
-            --surface-2: #1f1f23;
-            --border: rgba(255, 255, 255, 0.07);
-            --border-soft: rgba(255, 255, 255, 0.04);
-            --text: #fafafa;
-            --text-dim: #a1a1aa;
-            --cyan: #10b981;
-            --violet: #3b82f6;
-            
-            --font-display: "Plus Jakarta Sans", "Inter", sans-serif;
-            --font-body: "Inter", system-ui, -apple-system, sans-serif;
-        }
 
-        /* Custom Scrollbars */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.32); }
-        ::-webkit-scrollbar-corner { background: transparent; }
-        * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.16) transparent; }
-
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: var(--font-body);
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            overflow-x: hidden;
-            position: relative;
-        }
-
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            pointer-events: none;
-            background:
-                radial-gradient(700px 520px at 12% -8%, rgba(16, 185, 129, 0.08), transparent 60%),
-                radial-gradient(640px 500px at 90% 12%, rgba(59, 130, 246, 0.06), transparent 60%),
-                radial-gradient(900px 700px at 50% 108%, rgba(16, 185, 129, 0.04), transparent 60%);
-        }
-        
-        .header-nav {
-            width: 100%;
-            padding: 12px 40px;
-            padding-left: 100px;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            z-index: 10;
-        }
-
-        .header-nav .brand {
-            display: flex;
-            align-items: center;
-            font-family: var(--font-display);
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--text-color);
-            text-decoration: none;
-        }
-
-        .header-nav .brand img {
-            width: 32px;
-            height: 32px;
-            margin-right: 12px;
-        }
-
-        .rules-card {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-top: 1rem;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            padding: 1.5rem;
-            border-radius: 15px;
-            backdrop-filter: blur(20px);
-            text-align: left;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-            animation: fadeIn 0.5s ease;
-        }
-        
-        @media (max-width: 600px) {
-            .rules-card { grid-template-columns: 1fr; }
-        }
-
-        .rule-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 10px;
-            background: rgba(255,255,255,0.02);
-            border-radius: 10px;
-            border: 1px solid var(--border-soft);
-        }
-        
-        .rule-item i {
-            color: var(--cyan);
-            margin-top: 4px;
-            font-size: 1.2rem;
-        }
-        
-        .rule-item div {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            line-height: 1.4;
-        }
-        
-        .rule-item div strong {
-            color: var(--text-color);
-            display: block;
-            margin-bottom: 2px;
-            font-weight: 600;
-        }
-
-        .container {
-            text-align: center;
-            z-index: 10;
-            padding: 0.2rem 2rem 0.5rem;
-            max-width: 600px;
-            width: 100%;
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin-bottom: 0.2rem;
-            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        p.subtitle {
-            color: var(--text-muted);
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-        }
-
-        .mic-container {
-            position: relative;
-            width: 110px;
-            height: 110px;
-            margin: 0 auto;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: transform 0.3s ease;
-        }
-
-        .mic-container:hover {
-            transform: scale(1.05);
-        }
-
-        .mic-button {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 10px 30px rgba(123, 44, 191, 0.4);
-            z-index: 2;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .mic-button svg {
-            width: 40px;
-            height: 40px;
-            fill: #ffffff;
-        }
-
-        .mic-ripple {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: rgba(199, 125, 255, 0.3);
-            z-index: 1;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .listening .mic-ripple {
-            animation: ripple 1.5s infinite;
-        }
-
-        @keyframes ripple {
-            0% { width: 80px; height: 80px; opacity: 1; }
-            100% { width: 180px; height: 180px; opacity: 0; }
-        }
-
-        .status-text {
-            margin-top: 0.5rem;
-            font-size: 1.2rem;
-            min-height: 1.5rem;
-            color: var(--text-color);
-            transition: opacity 0.3s ease;
-        }
-
-        .transcription {
-            margin-top: 0.2rem;
-            font-size: 1.1rem;
-            color: var(--secondary-color);
-            font-style: italic;
-            min-height: 1.5rem;
-        }
-
-        .results-container {
-            margin-top: 1rem;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 15px;
-            padding: 1.5rem;
-            backdrop-filter: blur(10px);
-            display: none;
-            text-align: left;
-            animation: fadeIn 0.5s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .results-container h3 {
-            margin-top: 0;
-            color: var(--secondary-color);
-            font-weight: 600;
-        }
-
-        .song-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .song-item {
-            padding: 0.8rem;
-            border-bottom: 1px solid var(--glass-border);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .song-item:last-child {
-            border-bottom: none;
-        }
-
-        .song-title {
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-
-        .song-artist {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-top: 0.2rem;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 60, 60, 0.9);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-            z-index: 100;
-        }
-
-        .toast.show {
-            opacity: 1;
-        }
-
-        /* Zuno Music Card styles */
-        .main-music-card {
-            max-width: 420px;
-            width: 100%;
-            margin: 0 auto;
-            padding: 18px;
-            border-radius: 35px;
-            background: #000;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            font-family: -apple-system, system-ui, sans-serif;
-            color: white;
-            transition: all 0.3s ease;
-            box-sizing: border-box;
-        }
-
-        .track-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .album-art {
-            width: 64px;
-            height: 64px;
-            border-radius: 16px;
-            background: linear-gradient(135deg, #ff9a9e, #fad0c4);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-            flex-shrink: 0;
-            transition: transform 0.3s ease;
-        }
-
-        .album-art:hover {
-            transform: scale(1.05);
-        }
-
-        .track-details {
-            flex-grow: 1;
-            overflow: hidden;
-        }
-
-        .track-title {
-            font-size: 1.3em;
-            font-weight: 600;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            text-align: left;
-        }
-
-        .artist-name {
-            font-size: 0.9em;
-            color: #d1d1d6;
-            margin-top: 2px;
-            text-align: left;
-        }
-
-        .volume-bars {
-            display: flex;
-            align-items: flex-end;
-            gap: 2px;
-            width: 38px;
-            height: 32px;
-        }
-
-        .volume-bars .bar {
-            width: 3px;
-            background: linear-gradient(180deg, #00c6ff, #0072ff);
-            border-radius: 2px;
-            animation: bounce 0.8s infinite ease-in-out;
-            animation-delay: var(--delay);
-            animation-play-state: running;
-        }
-
-        .volume-bars.paused .bar {
-            animation-play-state: paused !important;
-        }
-
-        @keyframes bounce {
-            0%, 100% { height: 6px; }
-            50% { height: 26px; }
-        }
-
-        .playback-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .time-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8em;
-            color: #8e8e93;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 4px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
-            position: relative;
-        }
-
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #00c6ff, #0072ff);
-            border-radius: 2px;
-        }
-
-        .button-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .control-button {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: none;
-            background: none;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.2s;
-            color: #fff;
-            padding: 0;
-        }
-
-        .control-button:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: scale(1.05);
-        }
-
-        .main-control-btns {
-            justify-content: center;
-            align-items: center;
-            display: flex;
-            flex: 1;
-            gap: 8px;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* Error Card */
-        .error-card {
-            margin-top: 1rem;
-            background: rgba(255, 60, 80, 0.08);
-            border: 1px solid rgba(255, 80, 100, 0.3);
-            border-radius: 18px;
-            padding: 1.6rem 1.8rem;
-            backdrop-filter: blur(12px);
-            text-align: left;
-            animation: fadeIn 0.4s ease;
-            display: none;
-        }
-
-        .error-card-title {
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: #ff6b81;
-            margin-bottom: 0.6rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .error-card-body {
-            font-size: 0.92rem;
-            color: var(--text-muted);
-            line-height: 1.7;
-            margin-bottom: 1.2rem;
-        }
-
-        .error-card-body ol {
-            margin: 0.5rem 0 0 1rem;
-            padding: 0;
-        }
-
-        .error-card-body li {
-            margin-bottom: 0.3rem;
-        }
-
-        .error-card-body strong {
-            color: var(--text-color);
-        }
-
-        .btn-go-home {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.6rem 1.4rem;
-            border-radius: 30px;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: #fff;
-            font-family: 'Outfit', sans-serif;
-            font-size: 0.95rem;
-            font-weight: 600;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: 0 4px 18px rgba(123, 44, 191, 0.35);
-        }
-
-        .btn-go-home:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(123, 44, 191, 0.5);
-        }
-
-        .error-card-btn-row {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .btn-go-localhost {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.6rem 1.4rem;
-            border-radius: 30px;
-            background: transparent;
-            color: var(--secondary-color);
-            font-family: 'Outfit', sans-serif;
-            font-size: 0.95rem;
-            font-weight: 600;
-            text-decoration: none;
-            border: 1.5px solid var(--secondary-color);
-            cursor: pointer;
-            transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .btn-go-localhost:hover {
-            transform: translateY(-2px);
-            background: rgba(199, 125, 255, 0.1);
-            box-shadow: 0 6px 20px rgba(199, 125, 255, 0.25);
-        }
-
-        /* Platform Menu Toggle */
-        .platform-menu {
-            padding: 0.5rem;
-            background-color: var(--surface-light);
-            border: 1px solid var(--border-color);
-            position: relative;
-            display: flex;
-            justify-content: center;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px 0 rgba(0,0,0, 0.2);
-            margin: 1.5rem auto;
-            width: fit-content;
-            gap: 5px;
-        }
-
-        .platform-link {
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            width: 50px;
-            height: 40px;
-            border-radius: 8px;
-            position: relative;
-            z-index: 1;
-            overflow: hidden;
-            transform-origin: center left;
-            transition: width 0.2s ease-in;
-            text-decoration: none;
-            color: var(--text-muted);
-            cursor: pointer;
-        }
-
-        .platform-link::before {
-            position: absolute;
-            z-index: -1;
-            content: "";
-            display: block;
-            border-radius: 8px;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            transform: translateX(100%);
-            transition: transform 0.2s ease-in;
-            transform-origin: center right;
-            background-color: var(--primary-color);
-        }
-
-        .platform-link:hover,
-        .platform-link:focus,
-        .platform-link.active {
-            outline: 0;
-            width: 130px;
-            color: white;
-        }
-
-        .platform-link:hover::before,
-        .platform-link:focus::before,
-        .platform-link.active::before,
-        .platform-link:hover .link-title,
-        .platform-link:focus .link-title,
-        .platform-link.active .link-title {
-            transform: translateX(0);
-            opacity: 1;
-        }
-
-        .platform-link .link-icon {
-            width: 24px;
-            height: 24px;
-            display: block;
-            flex-shrink: 0;
-            left: 13px;
-            position: absolute;
-        }
-
-        .platform-link .link-icon svg {
-            width: 24px;
-            height: 24px;
-        }
-
-        .platform-link .link-title {
-            transform: translateX(100%);
-            transition: transform 0.2s ease-in;
-            transform-origin: center right;
-            display: block;
-            text-align: center;
-            text-indent: 24px;
-            width: 100%;
-            opacity: 0;
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-    </style>
-</head>
-<body>
-    <header class="header-nav">
-        <a href="/" class="brand">
-            <img src="{% static 'images/Hero_ai.png' %}" alt="Heros Logo" />
-            Heros
+{% block title %}Zuno · AI Music Assistant | Heros{% endblock %}
+{% block description %}Zuno by Heros — your intelligent voice-controlled music assistant for YouTube and YouTube Music.{% endblock %}
+{% block body_class %}page-zuno is-authed{% endblock %}
+
+{% block app_head %}
+  <link rel="stylesheet" href="{% static 'heros/css/zuno.css' %}" />
+{% endblock %}
+
+{# ───────────────────────── Sidebar ───────────────────────── #}
+{% block sidebar_primary %}
+  <a href="{% url 'home' %}" class="sb-item primary-action" data-tip="New chat" data-tip-pos="right">
+    <i class="fa-solid fa-plus"></i><span class="sb-label">New chat</span>
+  </a>
+{% endblock %}
+
+{% block sidebar_features %}{% include "partials/sidebar_features.html" with active="zuno" %}{% endblock %}
+
+{% block sidebar_list %}
+  <div class="sb-section-label">Try saying</div>
+  <div class="zuno-try-list">
+    <div class="zuno-try"><i class="fa-solid fa-play"></i> “Play Starboy by The Weeknd”</div>
+    <div class="zuno-try"><i class="fa-solid fa-magnifying-glass"></i> “Search for Anirudh”</div>
+    <div class="zuno-try"><i class="fa-solid fa-forward-step"></i> “Next song”, “Pause”, “Resume”</div>
+    <div class="zuno-try"><i class="fa-solid fa-up-right-from-square"></i> “Bring music tab to front”</div>
+  </div>
+  <div class="zuno-ext-card">
+    <div class="zuno-ext-icon"><i class="fa-brands fa-chrome"></i></div>
+    <div>
+      <strong>Zuno lives inside Zeno</strong>
+      <p>Install the Zeno Pro extension for silent background playback control.</p>
+      <a href="https://github.com/Hudsonmathew1910/Hero-s-AI/releases/download/Heros_5th_Gen/Zeno_Pro_3.5.zip" target="_blank" rel="noopener" class="btn btn-sm btn-outline">Get Zeno Pro 3.5</a>
+    </div>
+  </div>
+{% endblock %}
+
+{% block sidebar_footer %}
+  <div class="sb-foot-links">
+    <a href="{% url 'platform' %}" class="sb-item" data-tip="Platform" data-tip-pos="right"><i class="fa-solid fa-terminal"></i><span class="sb-label">Platform</span></a>
+    <a href="{% url 'landing' %}" class="sb-item" data-tip="Discover Heros" data-tip-pos="right"><i class="fa-regular fa-compass"></i><span class="sb-label">Discover Heros</span></a>
+  </div>
+{% endblock %}
+
+{# ───────────────────────── Main ───────────────────────── #}
+{% block main_class %}zuno-main{% endblock %}
+
+{% block main %}
+  <header class="topbar header-nav">
+    <div class="topbar-left">
+      <button type="button" class="icon-btn only-collapsed" onclick="HerosShell.toggleSidebar()" data-tip="Open sidebar" aria-label="Open sidebar">
+        {% include "partials/icon_sidebar.html" %}
+      </button>
+      <div class="zuno-topbar-title">
+        <span class="zuno-feature-mark"><i class="fa-solid fa-music"></i></span>
+        <span class="topbar-title">Zuno</span>
+        <span class="badge badge-accent">Music</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <a href="{% url 'home' %}" class="icon-btn" data-tip="Chat" aria-label="Chat"><i class="fa-regular fa-comment"></i></a>
+      <button type="button" class="icon-btn" data-theme-toggle data-tip="Toggle theme" aria-label="Toggle theme"><i class="fa-solid fa-circle-half-stroke"></i></button>
+    </div>
+  </header>
+
+  <div class="zuno-scroll">
+    <div class="container zuno-container">
+      <h1 class="zuno-title"><span>Zuno</span></h1>
+      <p class="subtitle">Your intelligent voice-controlled music assistant</p>
+
+      <div class="platform-menu" id="platformMenu" role="tablist" aria-label="Music platform">
+        <a class="platform-link active" data-platform="yt_music" role="tab" tabindex="0">
+          <span class="link-icon"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.4 9.2v5.6l4.6-2.8z" fill="currentColor"/></svg></span>
+          <span class="link-title">YT Music</span>
         </a>
-    </header>
+        <a class="platform-link" data-platform="youtube" role="tab" tabindex="0">
+          <span class="link-icon"><i class="fa-brands fa-youtube"></i></span>
+          <span class="link-title">YouTube</span>
+        </a>
+      </div>
 
-    <div class="container">
-        <h1><span style="background: linear-gradient(100deg, var(--cyan) 10%, var(--violet) 85%); -webkit-background-clip: text; color: transparent;">Zuno</span></h1>
-        <p class="subtitle">Your intelligent voice-controlled music assistant</p>
-
-
-        <!-- Platform Toggle Menu -->
-        <div class="platform-menu" id="platformMenu">
-            <a class="platform-link active" data-platform="yt_music">
-                <span class="link-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
-                    </svg>
-                </span>
-                <span class="link-title">YT Music</span>
-            </a>
-            <a class="platform-link" data-platform="youtube">
-                <span class="link-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M21.58 7.19c-.23-.86-.91-1.54-1.77-1.77C18.25 5 12 5 12 5s-6.25 0-7.81.42c-.86.23-1.54.91-1.77 1.77C2 8.75 2 12 2 12s0 3.25.42 4.81c.23.86.91 1.54 1.77 1.77C5.75 19 12 19 12 19s6.25 0 7.81-.42c.86-.23 1.54-.91 1.77-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81zM10 15V9l5.2 3-5.2 3z"/>
-                    </svg>
-                </span>
-                <span class="link-title">YouTube</span>
-            </a>
-        </div>
-
-        
-
+      <div class="mic-stage">
         <div class="mic-container" id="micContainer" {% if groq_missing %}style="opacity:0.4;pointer-events:none;"{% endif %}>
-            <div class="mic-ripple"></div>
-            <button class="mic-button" id="micBtn" aria-label="Start recording" {% if groq_missing %}disabled{% endif %}>
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
-                </svg>
-            </button>
+          <div class="mic-ripple"></div>
+          <div class="mic-ripple r2"></div>
+          <button class="mic-button" id="micBtn" aria-label="Start recording" {% if groq_missing %}disabled{% endif %}>
+            <i class="fa-solid fa-microphone"></i>
+          </button>
         </div>
-
         <div class="status-text" id="statusText">{% if groq_missing %}Configure your API key to start{% else %}Tap to speak{% endif %}</div>
         <div class="transcription" id="transcriptionText"></div>
+      </div>
 
-        <div class="rules-card">
-            <div class="rule-item">
-                <i class="fa-solid fa-play"></i>
-                <div>
-                    <strong>Play Music</strong>
-                    "Play Starboy by The Weeknd"
-                </div>
+      <div id="zuno-music-player">
+        <div class="main-music-card">
+          <div class="track-info">
+            <div class="album-art" id="zuno-album-art"><i class="fa-solid fa-music"></i></div>
+            <div class="track-details">
+              <div class="track-title" id="zuno-track-title">Say play [song]</div>
+              <div class="artist-name" id="zuno-artist-name">to start playing</div>
             </div>
-            <div class="rule-item">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <div>
-                    <strong>Search Artist</strong>
-                    "Search for Anirudh"
-                </div>
+            <div class="volume-bars paused" id="zuno-volume-bars">
+              <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+              <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
             </div>
-            <div class="rule-item">
-                <i class="fa-solid fa-forward-step"></i>
-                <div>
-                    <strong>Control Playback</strong>
-                    "Next song", "Pause", "Resume"
-                </div>
+          </div>
+          <div class="playback-controls">
+            <div class="time-info">
+              <span class="current-time" id="zuno-current-time">0:00</span>
+              <span class="remaining-time" id="zuno-remaining-time">-0:00</span>
             </div>
-            <div class="rule-item">
-                <i class="fa-solid fa-up-right-from-square"></i>
-                <div>
-                    <strong>Music Radar</strong>
-                    "Bring music tab to front"
+            <div class="progress-bar"><div class="progress-fill" id="zuno-progress-fill"></div></div>
+            <div class="button-row">
+              <div class="main-control-btns">
+                <button class="control-button back" id="zuno-btn-prev" title="Previous Track"><i class="fa-solid fa-backward-step"></i></button>
+                <button class="control-button back" id="zuno-btn-skip-back" title="Skip Back 10s"><i class="fa-solid fa-rotate-left"></i></button>
+                <div class="play-pause-btns">
+                  <button class="control-button play-pause-button" id="zuno-btn-play-pause" title="Play/Pause">
+                    <i class="fa-solid fa-play icon-play"></i>
+                    <i class="fa-solid fa-pause icon-pause hidden"></i>
+                  </button>
                 </div>
+                <button class="control-button next" id="zuno-btn-skip-forward" title="Skip Forward 10s"><i class="fa-solid fa-rotate-right"></i></button>
+                <button class="control-button next" id="zuno-btn-next" title="Next Track"><i class="fa-solid fa-forward-step"></i></button>
+              </div>
+              <button class="control-button d" id="zuno-btn-radar" title="Open YouTube Tab"><i class="fa-solid fa-satellite-dish"></i></button>
             </div>
+          </div>
         </div>
-<!-- Zuno Music Player Card -->
-        <div id="zuno-music-player" style="display: none; align-items: center; justify-content: center; margin: 1rem 0;">
-            <div class="main-music-card">
-                <div class="track-info">
-                    <div class="album-art" id="zuno-album-art"></div>
-                    <div class="track-details">
-                        <div class="track-title" id="zuno-track-title">Say play [song]</div>
-                        <div class="artist-name" id="zuno-artist-name">to start playing</div>
-                    </div>
-                    <div class="volume-bars paused" id="zuno-volume-bars">
-                        <div class="bar" style="--delay:0s"></div>
-                        <div class="bar" style="--delay:0.1s"></div>
-                        <div class="bar" style="--delay:0.2s"></div>
-                        <div class="bar" style="--delay:0.3s"></div>
-                        <div class="bar" style="--delay:0.4s"></div>
-                        <div class="bar" style="--delay:0.5s"></div>
-                        <div class="bar" style="--delay:0.6s"></div>
-                        <div class="bar" style="--delay:0.7s"></div>
-                    </div>
-                </div>
+      </div>
 
-                <div class="playback-controls">
-                    <div class="time-info">
-                        <span class="current-time" id="zuno-current-time">0:00</span>
-                        <span class="remaining-time" id="zuno-remaining-time">-0:00</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="zuno-progress-fill" style="width: 0%;"></div>
-                    </div>
-                    <div class="button-row">
-                        <div class="main-control-btns">
-                            <button class="control-button back" id="zuno-btn-prev" title="Previous Track">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                    <path d="M4 4a.5.5 0 0 1 1 0v3.248l6.267-3.636c.54-.313 1.233.066 1.233.696v7.384c0 .63-.692 1.01-1.233.697L5 8.753V12a.5.5 0 0 1-1 0V4z"/>
-                                </svg>
-                            </button>
-                            <button class="control-button back" id="zuno-btn-skip-back" title="Skip Back 10s">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
-                                    <path d="M3.102 4c.04-.316.025-.617-.05-.9L2 3.5l-.2-.5 1.5-.7.5.2-.2 1.5H3.102z"/>
-                                </svg>
-                            </button>
-                            <div class="play-pause-btns">
-                                <button class="control-button play-pause-button" id="zuno-btn-play-pause" title="Play/Pause">
-                                    <svg class="icon-play" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
-                                        <path d="M11.596 8.697l-6.363 3.692c-.54.314-1.233-.065-1.233-.696V4.308c0-.63.693-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393"/>
-                                    </svg>
-                                    <svg class="icon-pause hidden" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
-                                        <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"/>
-                                    </svg>
-                                </button>
-                            </div>
-                            <button class="control-button next" id="zuno-btn-skip-forward" title="Skip Forward 10s">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                                    <path d="M12.898 4c-.04-.316-.025-.617.05-.9L14 3.5l.2-.5-1.5-.7-.5.2.2 1.5h.5z"/>
-                                </svg>
-                            </button>
-                            <button class="control-button next" id="zuno-btn-next" title="Next Track">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                    <path d="M12.5 4a.5.5 0 0 0-1 0v3.248L5.233 3.612C4.693 3.3 4 3.678 4 4.308v7.384c0 .63.692 1.01 1.233.697L11.5 8.753V12a.5.5 0 0 0 1 0V4z"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <button class="control-button d" id="zuno-btn-radar" title="Open YouTube Tab">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M6.634 1.135A7 7 0 0 1 15 8a.5.5 0 0 1-1 0 6 6 0 1 0-6.5 5.98v-1.005A5 5 0 1 1 13 8a.5.5 0 0 1-1 0 4 4 0 1 0-4.5 3.969v-1.011A2.999 2.999 0 1 1 11 8a.5.5 0 0 1-1 0 2 2 0 1 0-2.5 1.936v-1.07a1 1 0 1 1 1 0V15.5a.5.5 0 0 1-1 0v-.518a7 7 0 0 1-.866-13.847"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
+      <div class="results-container" id="resultsContainer">
+        <h3 id="resultsTitle">Search Results</h3>
+        <ul class="song-list" id="songList"></ul>
+      </div>
+
+      <div class="error-card" id="errorCard" {% if groq_missing %}style="display:block;"{% endif %}>
+        <div class="error-card-title" id="errorCardTitle">
+          {% if groq_missing %}Groq API Key Missing{% else %}Action Required{% endif %}
         </div>
-
-        <div class="results-container" id="resultsContainer">
-            <h3 id="resultsTitle">Search Results</h3>
-            <ul class="song-list" id="songList">
-                <!-- Dynamic results inserted here -->
-            </ul>
+        <div class="error-card-body" id="errorCardBody">
+          {% if groq_missing %}
+            To use Zuno, please configure your Groq API key in your Heros profile:
+            <ol>
+              <li>Log in to your <strong>Heros</strong> account.</li>
+              <li>Navigate to <strong>Account / API Keys</strong>.</li>
+              <li>Add your <strong>Groq API Key</strong> and save.</li>
+            </ol>
+            <a href="{% url 'home' %}" class="btn btn-sm">Open Heros settings</a>
+          {% endif %}
         </div>
+      </div>
 
-        <!-- Error Card for login / API key issues -->
-        <div class="error-card" id="errorCard" {% if groq_missing %}style="display:block;"{% endif %}>
-            <div class="error-card-title" id="errorCardTitle">
-                {% if groq_missing %}Groq API Key Missing{% else %}Action Required{% endif %}
-            </div>
-            <div class="error-card-body" id="errorCardBody">
-                {% if groq_missing %}
-                To use Zuno, please configure your Groq API key in your Heros profile:
-                <ol>
-                    <li>Log in to your <strong>Heros</strong> account.</li>
-                    <li>Navigate to <strong>Account / API Keys</strong>.</li>
-                    <li>Add your <strong>Groq API Key</strong> and save.</li>
-                </ol>
-                {% endif %}
-            </div>
-
+      <div class="rules-card">
+        <div class="rule-item">
+          <i class="fa-solid fa-play"></i>
+          <div><strong>Play Music</strong>"Play Starboy by The Weeknd"</div>
         </div>
+        <div class="rule-item">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <div><strong>Search Artist</strong>"Search for Anirudh"</div>
+        </div>
+        <div class="rule-item">
+          <i class="fa-solid fa-forward-step"></i>
+          <div><strong>Control Playback</strong>"Next song", "Pause", "Resume"</div>
+        </div>
+        <div class="rule-item">
+          <i class="fa-solid fa-up-right-from-square"></i>
+          <div><strong>Music Radar</strong>"Bring music tab to front"</div>
+        </div>
+      </div>
     </div>
+  </div>
+{% endblock %}
 
-    <div class="toast" id="toast"></div>
+{% block modals %}
+  <div class="toast" id="toast" role="status"></div>
+{% endblock %}
 
-    <script>
-        const micBtn = document.getElementById('micBtn');
-        const micContainer = document.getElementById('micContainer');
-        const statusText = document.getElementById('statusText');
-        const transcriptionText = document.getElementById('transcriptionText');
-        const resultsContainer = document.getElementById('resultsContainer');
-        const songList = document.getElementById('songList');
-        const resultsTitle = document.getElementById('resultsTitle');
-        const toast = document.getElementById('toast');
-
-        // Zuno Music Player DOM Elements
-        const zunoMusicPlayer = document.getElementById('zuno-music-player');
-        const zunoTrackTitle = document.getElementById('zuno-track-title');
-        const zunoArtistName = document.getElementById('zuno-artist-name');
-        const zunoAlbumArt = document.getElementById('zuno-album-art');
-        const zunoVolumeBars = document.getElementById('zuno-volume-bars');
-        const zunoCurrentTime = document.getElementById('zuno-current-time');
-        const zunoRemainingTime = document.getElementById('zuno-remaining-time');
-        const zunoProgressFill = document.getElementById('zuno-progress-fill');
-
-        const zunoBtnPrev = document.getElementById('zuno-btn-prev');
-        const zunoBtnSkipBack = document.getElementById('zuno-btn-skip-back');
-        const zunoBtnPlayPause = document.getElementById('zuno-btn-play-pause');
-        const zunoBtnSkipForward = document.getElementById('zuno-btn-skip-forward');
-        const zunoBtnNext = document.getElementById('zuno-btn-next');
-        const zunoBtnRadar = document.getElementById('zuno-btn-radar');
-
-        const EXTENSION_ID = "egobkkfkdjagkggbpfkadhfknjeofjab";
-        let isListening = false;
-        let musicStatusInterval = null;
-
-        // Initialize Speech Recognition
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            showToast("Speech Recognition API not supported in this browser.");
-            micBtn.disabled = true;
-        } else {
-            const recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.lang = 'en-US';
-
-            recognition.onstart = function() {
-                isListening = true;
-                micContainer.classList.add('listening');
-                statusText.innerText = "Listening...";
-                transcriptionText.innerText = "";
-                resultsContainer.style.display = 'none';
-            };
-
-            recognition.onresult = function(event) {
-                const transcript = event.results[0][0].transcript.trim();
-                
-                if (!transcript) {
-                    statusText.innerText = "Tap to speak";
-                    transcriptionText.innerText = "";
-                    return;
-                }
-
-                transcriptionText.innerText = `"${transcript}"`;
-                statusText.innerText = "Processing...";
-                
-                // Send to backend
-                processAudio(transcript);
-            };
-
-            recognition.onerror = function(event) {
-                isListening = false;
-                micContainer.classList.remove('listening');
-                
-                if (event.error === 'no-speech' || event.error === 'aborted') {
-                    statusText.innerText = "Tap to speak";
-                    transcriptionText.innerText = "";
-                } else {
-                    statusText.innerText = "Error capturing audio.";
-                    showToast(`Error: ${event.error}`);
-                }
-            };
-
-            recognition.onend = function() {
-                isListening = false;
-                micContainer.classList.remove('listening');
-                if (statusText.innerText === "Listening...") {
-                    statusText.innerText = "Tap to speak";
-                }
-            };
-
-            micBtn.addEventListener('click', () => {
-                if (isListening) {
-                    recognition.stop();
-                } else {
-                    recognition.start();
-                }
-            });
-        }
-
-        let currentPlatform = 'yt_music';
-        
-        document.querySelectorAll('.platform-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                document.querySelectorAll('.platform-link').forEach(l => l.classList.remove('active'));
-                link.classList.add('active');
-                currentPlatform = link.getAttribute('data-platform');
-            });
-        });
-
-        async function processAudio(text) {
-            try {
-                const response = await fetch('/zuno/process_audio/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ text: text, platform: currentPlatform })
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Unknown error occurred');
-                }
-
-                statusText.innerText = "Done!";
-                
-                if (data.intent === 'play_song' || data.status === 'play_extension') {
-                    showToast(data.message || "Playing song...");
-                    zunoMusicPlayer.style.display = 'flex';
-                    resultsContainer.style.display = 'none';
-                    
-                    if (data.url) {
-                        if (typeof chrome !== 'undefined' && chrome.runtime) {
-                            try {
-                                chrome.runtime.sendMessage(EXTENSION_ID, { action: "play_music", url: data.url }, response => {
-                                    if (chrome.runtime.lastError || !response || !response.success) {
-                                        window.location.href = data.url;
-                                    } else {
-                                        setTimeout(startPollingMusicStatus, 1500);
-                                    }
-                                });
-                            } catch (e) {
-                                window.location.href = data.url;
-                            }
-                        } else {
-                            window.location.href = data.url;
-                        }
-                    }
-                } else if (data.intent === 'search_artist') {
-                    zunoMusicPlayer.style.display = 'none';
-                    displayResults(data.query, data.results);
-                }
-
-                        } catch (error) {
-                console.error('Error:', error);
-                
-                let friendlyMsg = "I couldn't quite connect. Please try again.";
-                if (error.message.includes("No text provided") || error.message.includes("Failed to parse")) {
-                    friendlyMsg = "I didn't quite catch that. Try speaking a bit louder or more clearly.";
-                } else if (error.message.includes("All models failed")) {
-                    friendlyMsg = "The AI routing engine is currently experiencing high load. Retrying in a moment should work.";
-                } else if (error.message.includes("API Key") || error.message.includes("log in")) {
-                    friendlyMsg = error.message;
-                }
-                
-                statusText.innerText = "Failed.";
-                showErrorCard(friendlyMsg);
-                showToast(friendlyMsg);
-            }
-        }
-
-        function displayResults(query, results) {
-            resultsContainer.style.display = 'block';
-            resultsTitle.innerText = `Search Results for "${query}"`;
-            
-            songList.innerHTML = '';
-            
-            if (!results || results.length === 0) {
-                songList.innerHTML = '<li class="song-item"><div class="song-title">No results found.</div></li>';
-                return;
-            }
-
-            results.forEach(song => {
-                const li = document.createElement('li');
-                li.className = 'song-item';
-                
-                const titleDiv = document.createElement('div');
-                titleDiv.className = 'song-title';
-                titleDiv.innerText = song.title;
-                
-                const artistDiv = document.createElement('div');
-                artistDiv.className = 'song-artist';
-                artistDiv.innerText = song.artists;
-
-                li.appendChild(titleDiv);
-                li.appendChild(artistDiv);
-                songList.appendChild(li);
-            });
-        }
-
-        function formatTime(seconds) {
-            if (isNaN(seconds) || seconds === null) return "0:00";
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-        }
-
-        function updateMusicCardUI(data) {
-            zunoTrackTitle.textContent = data.title || "Say play [song]";
-            zunoArtistName.textContent = data.artist || "to start playing";
-            
-            if (data.albumArt) {
-                zunoAlbumArt.style.backgroundImage = `url(${data.albumArt})`;
-                zunoAlbumArt.style.backgroundSize = "cover";
-                zunoAlbumArt.style.backgroundPosition = "center";
-            } else {
-                zunoAlbumArt.style.backgroundImage = "linear-gradient(135deg, #ff9a9e, #fad0c4)";
-            }
-
-            const iconPlay = zunoBtnPlayPause.querySelector(".icon-play");
-            const iconPause = zunoBtnPlayPause.querySelector(".icon-pause");
-
-            if (data.paused) {
-                iconPlay.classList.remove("hidden");
-                iconPause.classList.add("hidden");
-                zunoVolumeBars.classList.add("paused");
-            } else {
-                iconPlay.classList.add("hidden");
-                iconPause.classList.remove("hidden");
-                zunoVolumeBars.classList.remove("paused");
-            }
-
-            const curTime = data.currentTime || 0;
-            const durTime = data.duration || 0;
-            zunoCurrentTime.textContent = formatTime(curTime);
-            zunoRemainingTime.textContent = durTime > 0 ? `-${formatTime(durTime - curTime)}` : "-0:00";
-            
-            if (durTime > 0) {
-                zunoProgressFill.style.width = `${(curTime / durTime) * 100}%`;
-            } else {
-                zunoProgressFill.style.width = "0%";
-            }
-        }
-
-        function startPollingMusicStatus() {
-            if (typeof chrome === 'undefined' || !chrome.runtime) return;
-            if (musicStatusInterval) clearInterval(musicStatusInterval);
-            
-            zunoMusicPlayer.style.display = "flex";
-            
-            pollMusicStatus();
-            musicStatusInterval = setInterval(pollMusicStatus, 1000);
-        }
-
-        function stopPollingMusicStatus() {
-            if (musicStatusInterval) {
-                clearInterval(musicStatusInterval);
-                musicStatusInterval = null;
-            }
-        }
-
-        function pollMusicStatus() {
-            try {
-                chrome.runtime.sendMessage(EXTENSION_ID, { action: "get_music_status" }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        return;
-                    }
-                    if (response && response.success && response.data) {
-                        updateMusicCardUI(response.data);
-                    }
-                });
-            } catch (e) {
-                // Ignore
-            }
-        }
-
-        // Initialize control listeners
-        if (typeof chrome !== 'undefined' && chrome.runtime) {
-            zunoBtnPrev.addEventListener("click", () => {
-                chrome.runtime.sendMessage(EXTENSION_ID, { action: "control_music", command: "previous" });
-            });
-            zunoBtnSkipBack.addEventListener("click", () => {
-                chrome.runtime.sendMessage(EXTENSION_ID, { action: "control_music", command: "skip_backward" });
-            });
-            zunoBtnPlayPause.addEventListener("click", () => {
-                chrome.runtime.sendMessage(EXTENSION_ID, { action: "control_music", command: "toggle_play" });
-            });
-            zunoBtnSkipForward.addEventListener("click", () => {
-                chrome.runtime.sendMessage(EXTENSION_ID, { action: "control_music", command: "skip_forward" });
-            });
-            zunoBtnNext.addEventListener("click", () => {
-                chrome.runtime.sendMessage(EXTENSION_ID, { action: "control_music", command: "next" });
-            });
-            zunoBtnRadar.addEventListener("click", () => {
-                chrome.runtime.sendMessage(EXTENSION_ID, { action: "control_music", command: "focus_tab" });
-            });
-            
-            // Check status if tab query contains music pages already
-            chrome.runtime.sendMessage(EXTENSION_ID, { action: "get_music_status" }, (response) => {
-                if (response && response.success) {
-                    startPollingMusicStatus();
-                }
-            });
-        } else {
-            zunoBtnRadar.style.display = 'none';
-        }
-
-        const errorCard = document.getElementById('errorCard');
-        const errorCardTitle = document.getElementById('errorCardTitle');
-        const errorCardBody = document.getElementById('errorCardBody');
-
-                function showErrorCard(message) {
-            // Detect login-required errors
-            const isLoginError = message.includes('log in') || message.includes('Login');
-            const isKeyError = message.includes('API Key') || message.includes('Groq');
-            
-            if (isLoginError || isKeyError) {
-                if (isLoginError) {
-                    errorCardTitle.innerHTML = 'Login Required';
-                    errorCardBody.innerHTML = 'Please log in to your Heros account and configure your API keys to use this feature.';
-                } else {
-                    errorCardTitle.innerHTML = 'Groq API Key Missing';
-                    errorCardBody.innerHTML =
-                        'To use Zuno, please configure your Groq API key in your Heros profile:' +
-                        '<ol>' +
-                        '<li>Log in to your <strong>Heros</strong> account.</li>' +
-                        '<li>Navigate to <strong>Account / API Keys</strong>.</li>' +
-                        '<li>Add your <strong>Groq API Key</strong> and save.</li>' +
-                        '</ol>';
-                }
-                errorCard.style.display = 'block';
-            } else {
-                errorCardTitle.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Oops, something went wrong';
-                errorCardBody.innerHTML = message;
-                errorCard.style.display = 'block';
-            }
-        }
-
-        function showToast(message) {
-            toast.innerText = message;
-            toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
-        }
-    </script>
-</body>
-</html>
+{% block scripts %}
+  <script src="{% static 'heros/js/zuno.js' %}"></script>
+{% endblock %}

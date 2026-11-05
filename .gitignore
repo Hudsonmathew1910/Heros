@@ -73,3 +73,5 @@ patch*.py
 # ── App Data & Auto-generated ───────────────────────────────────────────────
 halo_usage_stats.json
 brain/
+# ── Archived v5 frontend (local backup only) ────────────────────────────────
+_legacy_frontend_v5/

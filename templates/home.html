@@ -1,1887 +1,678 @@
+{% extends "layouts/app_shell.html" %}
 {% load static %}
-<!doctype html>
-<html lang="en" data-theme="light">
-  <head>
-    <script>
-      (function () {
-        const saved = localStorage.getItem('hero-theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', saved);
-      })();
-    </script>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Heros</title>
-    <link
-      rel="icon"
-      type="image/png"
-      href="{% static 'images/Hero_ai.png' %}"
-      sizes="128x128"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-    />
-    <link rel="stylesheet" href="{% static 'css/style.css' %}" />
-    <link rel="stylesheet" href="{% static 'css/style_m.css' %}" />
 
-    <style>
-      /* â”€â”€ Welcome screen — clean, no animations â”€â”€ */
-      .welcome.chat-bg {
-        position: absolute;
-        inset: 0;
-        display: flex !important;
-        opacity: 1;
-        z-index: 0;
-        pointer-events: none;
-      }
-      .welcome.chat-bg .welcome-icon,
-      .welcome.chat-bg h1,
-      .welcome.chat-bg p,
-      .welcome.chat-bg .suggestion-chips {
-        opacity: 0;
-        transition: opacity 0.35s ease;
-      }
-      .messages {
-        position: relative;
-        z-index: 1;
-      }
-      .voice-msg-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 0.7rem;
-        padding: 2px 8px;
-        border-radius: 6px;
-        margin-bottom: 6px;
-        font-weight: 600;
-        background: rgba(25, 195, 125, 0.10);
-        color: var(--accent);
-      }
-      .fast-btn {
-        background: transparent;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        font-size: 0.95rem;
-        padding: 4px 6px;
-        margin-left: 2px;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-      }
-      .fast-btn:hover {
-        color: #f5a623;
-        background: rgba(245, 166, 35, 0.1);
-      }
-      .fast-btn.active {
-        color: #f5a623;
-      }
-      
-      #voiceTranscript.inline-mode {
-        font-size: 0.95rem !important;
-        color: var(--text) !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        text-align: left !important;
-        height: auto !important;
-        min-height: 24px !important;
-        max-height: 200px !important;
-        display: flex !important;
-        align-items: flex-start !important;
-        overflow-y: auto !important;
-        white-space: normal !important;
-        word-wrap: break-word !important;
-        line-height: 1.5 !important;
-        width: 100% !important;
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-      }
-      .input-box.inline-voice-active {
-        position: relative !important;
-        overflow: visible !important;
-      }
-    </style>
-    <meta name="csrf-token" content="{{ csrf_token }}" />
-    <!-- KaTeX for math rendering -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
-      onload="window._katexReady = true;"></script>
-    <!-- Highlight.js for code syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  </head>
-  <body>
-    {% csrf_token %}
+{% block title %}Heros{% endblock %}
+{% block body_class %}page-chat{% endblock %}
 
-    <!-- â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
-     AUTH SCREEN
-â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  -->
-    <div class="auth-screen" id="authScreen" style="display: none;">
-      <div class="auth-card" style="position: relative;">
-        <!-- Close Button -->
-        <button onclick="hideAuthScreen()" style="position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 1.2rem; color: var(--text-dim); cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-dim)'" title="Skip for now">
-          <i class="fa-solid fa-xmark"></i>
+{% block app_head %}
+  <meta name="csrf-token" content="{{ csrf_token }}" />
+  <link rel="stylesheet" href="{% static 'heros/css/chat.css' %}" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="window._katexReady = true;"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+{% endblock %}
+
+{# ───────────────────────── Sidebar ───────────────────────── #}
+{% block sidebar_primary %}
+  <button type="button" class="sb-item primary-action" onclick="newChat(); HerosShell.closeMobileSidebar();" data-tip="New chat" data-tip-pos="right">
+    <i class="fa-solid fa-plus"></i><span class="sb-label">New chat</span>
+  </button>
+{% endblock %}
+
+{% block sidebar_features %}{% include "partials/sidebar_features.html" with active="chat" %}{% endblock %}
+
+{% block sidebar_list %}
+  <div class="sb-section-label">Recents</div>
+  <div class="history-scroll">
+    <div id="historyList">
+      <div class="history-item active"><i class="fa-regular fa-message"></i><span class="history-preview">Welcome chat</span></div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block sidebar_footer %}
+  {% csrf_token %}
+  <div class="sidebar-user-panel">
+    <div class="menu user-dropdown" id="userDropdown" data-autoclose>
+      <div class="menu-label" id="userMenuEmail">Account</div>
+      <button type="button" class="menu-item user-menu-item" onclick="openSettings()"><i class="fa-solid fa-gear"></i>Settings</button>
+      <button type="button" class="menu-item user-menu-item" onclick="openSettings('personalization')"><i class="fa-regular fa-user"></i>Personalization</button>
+      <a class="menu-item user-menu-item" href="{% url 'platform' %}"><i class="fa-solid fa-terminal"></i>Platform</a>
+      <button type="button" class="menu-item user-menu-item" onclick="openSettings('apps')"><i class="fa-solid fa-layer-group"></i>Apps &amp; Tools</button>
+      <a class="menu-item user-menu-item" href="{% url 'landing' %}"><i class="fa-regular fa-compass"></i>Discover Heros</a>
+      <button type="button" class="menu-item user-menu-item" onclick="openSettings('help')"><i class="fa-regular fa-circle-question"></i>Help &amp; Support</button>
+      <div class="menu-sep user-menu-divider"></div>
+      <button type="button" class="menu-item user-menu-item danger" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i>Log out</button>
+    </div>
+
+    <div class="user-info-row guest-row" id="userInfoRowLoggedOut">
+      <button type="button" class="btn btn-block" onclick="showAuthScreen()"><i class="fa-solid fa-right-to-bracket"></i><span class="account-text">Sign in</span></button>
+    </div>
+
+    <div class="user-info-row" id="userInfoRowLoggedIn" data-menu="userDropdown" role="button" tabindex="0" style="display:none">
+      <div class="user-avatar" id="userAvatarInitials">H</div>
+      <div class="user-details">
+        <div class="user-name" id="sidebarUserName">Loading…</div>
+        <div class="user-email" id="sidebarUserEmail">–</div>
+      </div>
+      <i class="fa-solid fa-chevron-up user-chevron" id="userChevron"></i>
+    </div>
+  </div>
+{% endblock %}
+
+{# ───────────────────────── Main ───────────────────────── #}
+{% block main_class %}chat-main is-empty{% endblock %}
+
+{% block main %}
+  <header class="topbar">
+    <div class="topbar-left">
+      <button type="button" class="icon-btn only-collapsed" onclick="toggleSidebar()" data-tip="Open sidebar" aria-label="Open sidebar">
+        {% include "partials/icon_sidebar.html" %}
+      </button>
+      <button type="button" class="icon-btn only-collapsed" onclick="newChat()" data-tip="New chat" aria-label="New chat">
+        <i class="fa-regular fa-pen-to-square"></i>
+      </button>
+
+      <div class="model-picker">
+        <button type="button" class="model-picker-btn" id="modelPickerBtn" data-menu="modelMenu" aria-haspopup="true" aria-expanded="false">
+          <span class="mp-brand">Heros</span><span id="modelPickerName">Halo 3.6</span><i class="fa-solid fa-chevron-down"></i>
         </button>
-
-        <div class="auth-logo">
-          <div class="auth-logo-dot"></div>
-          Heros
-        </div>
-        <div class="auth-tabs">
-          <button
-            class="auth-tab active"
-            id="tabLogin"
-            onclick="switchAuthTab('login')"
-          >
-            Sign In
-          </button>
-          <button
-            class="auth-tab"
-            id="tabSignup"
-            onclick="switchAuthTab('signup')"
-          >
-            Create Account
-          </button>
-        </div>
-        <!-- Login Form -->
-        <div id="loginForm" class="auth-form">
-          <div class="auth-input-group">
-            <label class="auth-label">Email</label>
-            <input
-              class="auth-input"
-              type="email"
-              id="loginEmail"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div class="auth-input-group">
-            <label class="auth-label">Password</label>
-            <input
-              class="auth-input"
-              type="password"
-              id="loginPassword"
-              placeholder="••••••••"
-            />
-          </div>
-          <button class="auth-btn" onclick="handleLogin()">
-            Sign In <i class="fa-solid fa-arrow-right"></i>
-          </button>
-          <div class="auth-divider"><span>or continue with</span></div>
-          <button class="auth-google-btn" onclick="handleGoogleAuth('signin')">
-            <svg width="16" height="16" viewBox="0 0 24 24">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
-            </svg>
-            Continue with Google
-          </button>
-        </div>
-        <!-- Signup Form -->
-        <div id="signupForm" class="auth-form" style="display: none">
-          <div class="auth-input-group">
-            <label class="auth-label">Full Name</label>
-            <input
-              class="auth-input"
-              type="text"
-              id="signupName"
-              placeholder="Your name"
-            />
-          </div>
-          <div class="auth-input-group">
-            <label class="auth-label">Email</label>
-            <input
-              class="auth-input"
-              type="email"
-              id="signupEmail"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div class="auth-input-group">
-            <label class="auth-label">Password</label>
-            <input
-              class="auth-input"
-              type="password"
-              id="signupPassword"
-              placeholder="Create a strong password"
-            />
-          </div>
-          <button class="auth-btn" onclick="handleSignup()">
-            Create Account <i class="fa-solid fa-arrow-right"></i>
-          </button>
-          <div class="auth-divider"><span>or continue with</span></div>
-          <button class="auth-google-btn" onclick="handleGoogleAuth('signup')">
-            <svg width="16" height="16" viewBox="0 0 24 24">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
-            </svg>
-            Continue with Google
-          </button>
-        </div>
-
-        <!-- Google Setup Form -->
-        <div id="googleSetupForm" class="auth-form" style="display: none">
-          <div
-            style="
-              margin-bottom: 20px;
-              font-size: 0.9rem;
-              color: var(--text-muted);
-              text-align: center;
-            "
-          >
-            Complete your account setup. <br />We have your email, just need a
-            username and password.
-          </div>
-          <div class="auth-input-group">
-            <label class="auth-label">Username</label>
-            <input
-              class="auth-input"
-              type="text"
-              id="googleSetupName"
-              placeholder="Your name"
-            />
-          </div>
-          <div class="auth-input-group">
-            <label class="auth-label">Password</label>
-            <input
-              class="auth-input"
-              type="password"
-              id="googleSetupPassword"
-              placeholder="Create a strong password"
-            />
-          </div>
-          <button class="auth-btn" onclick="handleGoogleSetup()">
-            Complete Setup <i class="fa-solid fa-arrow-right"></i>
-          </button>
-        </div>
-        <div class="auth-footer">
-          By continuing you agree to our <a href="#">Terms of Service</a> and
-          <a href="#">Privacy Policy</a>.
+        <div class="menu model-menu" id="modelMenu" data-autoclose></div>
+        <div class="model-select-group">
+          <select class="inline-model-select sr-only" id="modelSelect" onchange="onModelChange()" aria-label="Model" tabindex="-1">
+            <option value="Baymax">Baymax 4.5</option>
+            <option value="Halo" selected>Halo 3.6</option>
+            <option value="ZORVIN">ZORVIN</option>
+          </select>
         </div>
       </div>
     </div>
 
-    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     HEADER
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-    <header>
-      <div style="display: flex; align-items: center; gap: 10px">
-        <button class="menu-toggle" onclick="toggleSidebar()">
-          <i class="fa-solid fa-bars"></i>
-        </button>
-        <a href="{% url 'landing' %}" class="logo">
-          <div class="logo-dot"></div>
-          Heros
-        </a>
+    <div class="topbar-right">
+      <button type="button" class="icon-btn hdr-temp-btn" id="tempChatBtn" onclick="toggleTempChat()" data-tip="Temporary chat" aria-label="Temporary chat">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+      </button>
+      <button type="button" class="icon-btn hdr-temp-btn" id="devSidebarToggleBtn" onclick="toggleDevSidebar()" data-tip="Developer tools" aria-label="Developer tools" style="display:none">
+        <i class="fa-solid fa-code"></i>
+      </button>
+      <button type="button" class="icon-btn hdr-temp-btn" onclick="toggleThemeSimple()" data-tip="Toggle theme" aria-label="Toggle theme">
+        <i class="fa-solid fa-circle-half-stroke"></i>
+      </button>
+      <div class="topbar-auth guest-only">
+        <button type="button" class="btn btn-sm" onclick="showAuthScreen(); switchAuthTab('login');">Log in</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="showAuthScreen(); switchAuthTab('signup');">Sign up</button>
       </div>
-      <div class="header-right">
-        <button class="hdr-temp-btn" onclick="toggleThemeSimple()" title="Toggle theme">
-          <i class="fa-solid fa-circle-half-stroke"></i>
-        </button>
-        <button
-          class="hdr-temp-btn"
-          id="tempChatBtn"
-          title="Temporary chat"
-          onclick="toggleTempChat()"
-        >
-          <i class="fa-solid fa-clock-rotate-left" style="font-size: 0.78rem"></i>
-        </button>
-        <button
-          class="hdr-temp-btn"
-          id="devSidebarToggleBtn"
-          title="Developer Tools"
-          style="display: none;"
-          onclick="toggleDevSidebar()"
-        >
-          <i class="fa-solid fa-code"></i>
-        </button>
+    </div>
+  </header>
+
+  <div class="temp-banner" id="tempBanner">
+    <i class="fa-solid fa-clock-rotate-left"></i>
+    Temporary chat — this conversation won't be saved
+  </div>
+
+  <div class="chat-stage">
+    <section class="welcome" id="welcomeScreen">
+      <div class="welcome-inner">
+        <div class="intro-logo-wrap"><img src="{% static 'images/Hero_ai.png' %}" alt="Heros" class="intro-logo-img" /></div>
+        <h1 class="welcome-title" {% if username %}data-greeting="{{ username }}"{% else %}data-greeting=""{% endif %}>What can I help with?</h1>
+        <p class="welcome-sub">Powered by <strong>Baymax 4.5</strong> &amp; <strong>Halo 3.6</strong> — chat, code, search the web, read files and talk.</p>
       </div>
-    </header>
+    </section>
 
-    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     MAIN WRAPPER
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-    <div class="main-wrapper">
-      <!-- SIDEBAR BACKDROP (tap-to-close on mobile) -->
-      <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
-      <!-- SIDEBAR -->
-      <aside class="sidebar" id="sidebar">
-        <button class="new-chat-btn" onclick="newChat()">
-          <div class="nc-icon"><i class="fa-solid fa-plus"></i></div>
-          New conversation
-        </button>
-        <div class="history-scroll">
-          <div id="historyList">
-            <div class="history-item active">
-              <i class="fa-regular fa-message"></i>Welcome chat
-            </div>
-          </div>
-        </div>
+    <div class="messages" id="messages" aria-live="polite"></div>
+  </div>
 
-        <!-- Infinsight link — above user panel, subtle -->
-        <a href="{% url 'infinsight_home' %}" class="sidebar-infinsight-btn">
-          <div class="nc-icon"><i class="fa-solid fa-chart-line"></i></div>
-          Infinsight · Data Analyst
-        </a>
+  <div class="composer-dock">
+    <div class="input-wrap">
+      <button type="button" id="scrollDownBtn" class="scroll-down-btn" onclick="scrollToBottom()" aria-label="Scroll to bottom">
+        <i class="fa-solid fa-arrow-down"></i>
+      </button>
 
-        <div class="sidebar-user-panel">
-          <div class="user-dropdown" id="userDropdown">
-            <div class="user-menu-item" onclick="openSettings()">
-              <i class="fa-solid fa-gear"></i>Settings
-            </div>
-            <div class="user-menu-item" onclick="window.location.href='/platform/'">
-              <i class="fa-solid fa-terminal"></i>Platform
-            </div>
-            <div class="user-menu-divider"></div>
-            <div class="user-menu-item danger" onclick="handleLogout()">
-              <i class="fa-solid fa-right-from-bracket"></i>Log out
-            </div>
-          </div>
-          <!-- Logged out row -->
-          <div class="user-info-row" id="userInfoRowLoggedOut" style="display: flex; gap: 8px; padding: 12px; cursor: default; background: transparent;">
-             <button style="flex: 1; padding: 8px 0; border: none; border-radius: 6px; background: var(--surface2); color: var(--text-muted); font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--border);" onclick="showAuthScreen()" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-                 <i class="fa-solid fa-right-to-bracket"></i> Sign in
-             </button>
-          </div>
-          <!-- Logged in row -->
-          <div class="user-info-row" id="userInfoRowLoggedIn" onclick="toggleUserMenu()" style="display: none;">
-            <div class="user-avatar" id="userAvatarInitials">H</div>
-            <div class="user-details">
-              <div class="user-name" id="sidebarUserName">Loading…</div>
-              <div class="user-email" id="sidebarUserEmail">–</div>
-            </div>
-            <i class="fa-solid fa-chevron-up user-chevron" id="userChevron"></i>
-          </div>
-        </div>
-      </aside>
+      <div class="input-row-outer">
+        <div class="input-box" id="inputBox">
+          <div class="attach-preview-row" id="attachPreviewRow"></div>
 
-      <!-- CHAT AREA -->
-      <main class="chat-area" style="position: relative">
-        <!-- Temp chat banner -->
-        <div class="temp-banner" id="tempBanner">
-          <i class="fa-solid fa-clock-rotate-left"></i>
-          Temporary chat — this conversation won't be saved
-        </div>
-
-        <!-- Welcome screen -->
-        <div class="welcome" id="welcomeScreen">
-          <div style="position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center;">
-            <!-- Logo image container -->
-            <div class="intro-logo-wrap" style="margin-bottom: 8px;">
-              <img
-                src="{% static 'images/Hero_ai.png' %}"
-                alt="Heros"
-                class="intro-logo-img"
-              />
-            </div>
-
-            <!-- "Heros Powered" text -->
-            <span class="intro-logo-text" style="margin-bottom: 12px;">Powered by</span>
-
-            <!-- Animated Heros letters -->
-            <div class="hero-intro-loader" style="margin-bottom: 24px;">
-              <svg height="0" width="0" viewBox="0 0 64 64" style="position: absolute; overflow: hidden">
-                <defs></defs>
-              </svg>
-
-              <!-- H -->
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64" height="56" width="56">
-                <path class="intro-letter intro-l-h" stroke-linejoin="round" stroke-linecap="round" d="M 10 6 L 10 58 M 10 32 L 54 32 M 54 6 L 54 58" pathLength="360" />
-              </svg>
-              <!-- E -->
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64" height="56" width="56">
-                <path class="intro-letter intro-l-e" stroke-linejoin="round" stroke-linecap="round" d="M 54 6 L 10 6 L 10 58 L 54 58 M 10 32 L 48 32" pathLength="360" />
-              </svg>
-              <!-- R -->
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64" height="56" width="56">
-                <path class="intro-letter intro-l-r" stroke-linejoin="round" stroke-linecap="round" d="M 10 6 L 10 58 M 10 6 Q 54 6 54 24 Q 54 36 10 36 M 30 36 L 54 58" pathLength="360" />
-              </svg>
-              <div style="width: 6px; display: inline-block; flex-shrink: 0"></div>
-              <!-- O -->
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64" height="56" width="56">
-                <path class="intro-letter-o intro-l-o" stroke-linejoin="round" stroke-linecap="round" d="M 32 32 m 0 -24 a 24 24 0 1 1 0 48 a 24 24 0 1 1 0 -48" pathLength="360" />
-              </svg>
-              <div style="width: 6px; display: inline-block; flex-shrink: 0"></div>
-              <!-- S -->
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64" height="56" width="56">
-                <path class="intro-letter intro-l-s" stroke-linejoin="round" stroke-linecap="round" d="M 52 16 Q 52 6 32 6 Q 12 6 12 20 Q 12 32 32 32 Q 52 32 52 46 Q 52 58 32 58 Q 12 58 12 48" pathLength="360" />
-              </svg>
-            </div>
-
-            <div class="suggestion-chips">
-              <div class="chip" onclick="setModeCodingAndPrompt()">
-                <i class="fa-solid fa-code"></i> Code
+          <div class="input-row-1">
+            <div id="chatInputWrap" class="chat-input-wrap">
+              <div class="mode-badge" id="modeBadge" onclick="clearMode()">
+                <div class="badge-dot"></div>
+                <span id="modeBadgeText"></span>
+                <i class="fa-solid fa-xmark badge-x"></i>
               </div>
-              <div class="chip" onclick="fillSuggestion('Summarize this text:')">
-                <i class="fa-solid fa-align-left"></i> Summarize
-              </div>
-              <div class="chip" onclick="fillSuggestion('Explain this concept:')">
-                <i class="fa-solid fa-brain"></i> Explain
-              </div>
-              <div class="chip" onclick="fillSuggestion('Write a blog:')">
-                <i class="fa-solid fa-pen-nib"></i> Write
-              </div>
+              <textarea
+                id="chatInput"
+                placeholder="Message Heros…"
+                rows="1"
+                onkeydown="handleKey(event)"
+                oninput="autoResize(this); toggleSendBtn();"
+                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                data-lpignore="true" data-1password-ignore="true" data-form-type="other"
+              ></textarea>
+            </div>
+            <div id="inlineVoiceUI" class="inline-voice-ui">
+              <div id="inlineVoiceTranscriptWrap"></div>
             </div>
           </div>
-        </div>
 
-        <!-- Messages -->
-        <div class="messages" id="messages" style="display: none"></div>
-
-          <!-- Input bar -->
-          <div class="input-wrap" style="position: relative;">
-            
-            <!-- Scroll Down Button -->
-            <button id="scrollDownBtn" class="scroll-down-btn" onclick="scrollToBottom()" style="display: none; position: absolute; top: -50px; left: 50%; transform: translateX(-50%); z-index: 100; background: var(--bg); border: 1px solid rgba(255,255,255,0.1); color: var(--text-dim); border-radius: 50%; width: 36px; height: 36px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); align-items: center; justify-content: center; transition: all 0.2s ease;" onmouseover="this.style.color='var(--text)'; this.style.borderColor='rgba(255,255,255,0.2)';" onmouseout="this.style.color='var(--text-dim)'; this.style.borderColor='rgba(255,255,255,0.1)';">
-              <i class="fa-solid fa-arrow-down"></i>
-            </button>
-            <div class="attach-preview-row" id="attachPreviewRow"></div>
-
-            <div class="input-row-outer">
-              <div class="input-box" style="flex-direction: column; width: 100%; gap: 4px; padding: 10px 10px 8px; align-items: stretch;">
-                <!-- Row 1: attach | textarea | mute | send/mic -->
-                <div class="input-row-1" style="display: flex; width: 100%; align-items: center; gap: 6px;">
-                  <!-- + attach -->
-                  <div class="plus-wrap" id="plusWrap">
-                    <button
-                      class="plus-btn"
-                      id="plusBtn"
-                      onclick="triggerAttach()"
-                      title="Attach file"
-                      style="font-size: 0.95rem;"
-                    >
-                      <i class="fa-solid fa-paperclip"></i>
-                    </button>
-                  </div>
-
-                  <input
-                    type="file"
-                    id="fileInput"
-                    accept=".pdf,.doc,.docx,.txt"
-                    multiple
-                    onchange="handleFiles(this.files)"
-                    style="display: none;"
-                  />
-
-                  <!-- Input area with Badge -->
-                  <div id="chatInputWrap" style="flex: 1; display: flex; align-items: center; gap: 6px;">
-                    <!-- Mode badge -->
-                    <div class="mode-badge" id="modeBadge" onclick="clearMode()">
-                      <div class="badge-dot"></div>
-                      <span id="modeBadgeText"></span>
-                      <i class="fa-solid fa-xmark badge-x"></i>
-                    </div>
-
-                    <textarea
-                      id="chatInput"
-                      placeholder="Message Heros…"
-                      rows="1"
-                      onkeydown="handleKey(event)"
-                      oninput="autoResize(this); toggleSendBtn();"
-                      style="width: 100%;"
-                      autocomplete="off"
-                      autocorrect="off"
-                      autocapitalize="off"
-                      spellcheck="false"
-                      data-lpignore="true"
-                      data-1password-ignore="true"
-                      data-form-type="other"
-                    ></textarea>
-                  </div>
-
-                  <!-- Inline Voice UI (Hidden by default) -->
-                  <div id="inlineVoiceUI" style="display: none; flex: 1; align-items: center; gap: 10px; padding: 0 6px; overflow: hidden;">
-                    <div id="inlineVoiceTranscriptWrap" style="flex: 1; font-size: 0.95rem; color: var(--text); overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"></div>
-                  </div>
-                  <div id="inlineVoiceCanvasWrap" style="display: none; position: absolute; top: 0; right: 0; border-radius: 50%; overflow: hidden; z-index: 5;"></div>
-
-                  <!-- Fast Mode button -->
-                  <button
-                    id="fastModeBtn"
-                    onclick="toggleFastModeBtn(this)"
-                    title="Fast response (requires Groq API key)"
-                    style="padding: 4px; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; margin-right: 4px;"
-                  >
-                    <i class="fa-solid fa-bolt" style="font-size: 0.72rem;"></i>
+          <div class="input-row-2">
+            <div class="tools-left" id="searchCodeTalkWrap">
+              <div class="plus-wrap" id="plusWrap">
+                <button type="button" class="tool-icon-btn plus-btn" id="plusBtn" onclick="togglePlusMenu(event)" data-tip="Attach files & more" data-tip-pos="top" aria-label="Attach files and more">
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+                <div class="menu plus-menu" id="plusMenu">
+                  <button type="button" class="menu-item" onclick="triggerAttach()"><i class="fa-solid fa-paperclip"></i>Add files <span class="menu-hint">PDF, DOC, TXT</span></button>
+                  <div class="menu-sep"></div>
+                  <button type="button" class="menu-item" onclick="setMode('websearch')"><i class="fa-solid fa-globe"></i>Search the web</button>
+                  <button type="button" class="menu-item" onclick="setModeCodingAndPrompt()"><i class="fa-solid fa-code"></i>Write code</button>
+                  <div class="menu-sep"></div>
+                  <button type="button" class="menu-item mute-btn" id="muteBtn" onclick="toggleMute()" title="AI voice muted — click to unmute">
+                    <i class="fa-solid fa-volume-xmark" id="muteIcon"></i>Read replies aloud<span class="menu-hint mute-state" id="muteState">Off</span>
                   </button>
-
-                  <!-- Voice (Mute) Button -->
-                  <button
-                    class="mute-btn"
-                    id="muteBtn"
-                    onclick="toggleMute()"
-                    title="AI voice muted — click to unmute"
-                    style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 1rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"
-                  >
-                    <i class="fa-solid fa-volume-xmark"></i>
-                  </button>
-
-                  <!-- Combined Send/Mic Button -->
-                  <button
-                    id="sendMicBtn"
-                    onclick="handleSendMicClick()"
-                    class="mic-btn"
-                    style="width: 32px; height: 32px; border: none; background: transparent; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s; border-radius: 8px;"
-                    title="Mic"
-                  >
-                    <i id="sendMicIcon" class="fa-solid fa-microphone"></i>
-                  </button>
-                </div>
-
-                <!-- Row 2: search | code | voice | model -->
-                <div class="input-row-2" style="display: flex; width: 100%; align-items: center; justify-content: space-between; padding-top: 2px;">
-                  <div id="searchCodeTalkWrap" style="display: flex; align-items: center; gap: 6px;">
-                    <!-- Search button -->
-                    <button id="searchToggleBtn" onclick="toggleSearchMode()" class="active">
-                      <i class="fa-solid fa-magnifying-glass" style="font-size: 0.72rem;"></i> Search
-                    </button>
-
-                    <!-- Coding button -->
-                    <button id="codeToggleBtn" onclick="toggleCodingMode()">
-                      <i class="fa-solid fa-code" style="font-size: 0.72rem;"></i> Code
-                    </button>
-
-
-                    <!-- Voice chat icon (animated tooltip) -->
-                    <div class="tooltip-container" id="talkTooltipContainer" onclick="toggleInlineVoiceChat()" title="Voice Conversation">
-                      <span class="tooltip" id="talkTooltip">Say Hello to</span>
-                      <span class="text" id="talkText"><i class="fa-solid fa-microphone-lines"></i> Talk</span>
-                      <span id="voiceModelName">Halo 3.6</span>
-                    </div>
-
-                    <!-- Main Wait Button (Shown only while AI is speaking in voice mode) -->
-                    <button id="mainWaitBtn" onclick="handleWaitButtonClick(event)" disabled class="wait-pill-btn" style="display: none;" title="Stop AI & Listen (Spacebar)">
-                      <i class="fa-solid fa-hand"></i> Wait
-                    </button>
-                  </div>
-
-                  <!-- Model Switcher -->
-                  <div class="model-select-group" style="display: flex; align-items: center; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; height: 28px; padding: 0 10px;">
-                    <select
-                      class="inline-model-select"
-                      id="modelSelect"
-                      onchange="onModelChange()"
-                      style="border: none; background: transparent; height: 100%; box-shadow: none; outline: none; padding-right: 20px; font-size: 0.76rem; color: var(--text-muted); margin: 0; align-self: center;"
-                    >
-                      <option value="Baymax">Baymax 4.5</option>
-                      <option value="Halo" selected>Halo 3.6</option>
-                      <option value="ZORVIN">ZORVIN</option>
-                    </select>
-                  </div>
+                  <button type="button" class="menu-item" onclick="closePlusMenu(); openVoiceMode();"><i class="fa-solid fa-circle-dot"></i>Voice mode (full screen)</button>
                 </div>
               </div>
+              <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt" multiple onchange="handleFiles(this.files)" hidden />
+
+              <button type="button" id="searchToggleBtn" class="tool-chip active" onclick="toggleSearchMode()" data-tip="Web search" data-tip-pos="top">
+                <i class="fa-solid fa-globe"></i><span>Search</span>
+              </button>
+              <button type="button" id="codeToggleBtn" class="tool-chip" onclick="toggleCodingMode()" data-tip="Coding mode" data-tip-pos="top">
+                <i class="fa-solid fa-code"></i><span>Code</span>
+              </button>
+              <button type="button" id="fastModeBtn" class="tool-chip fast-btn" onclick="toggleFastModeBtn(this)" data-tip="Fast response (requires Groq API key)" data-tip-pos="top">
+                <i class="fa-solid fa-bolt"></i><span>Fast</span>
+              </button>
             </div>
 
-            <div class="input-hint">
-              Heros can make mistakes. Verify important information.
-            </div>
-          </div>
-      </main>
-    </div>
-    <!-- end .main-wrapper -->
-
-    <!-- â•â•â•â•â•â•â•â• DEVELOPER MODAL â•â•â•â•â•â•â•â• -->
-    <div class="modal-overlay" id="developerModal">
-      <div class="modal-card">
-        <div class="modal-header">
-          <div class="modal-title">
-            <i class="fa-solid fa-code"></i> Developer Mode Setup
-          </div>
-          <button class="modal-close" onclick="closeDeveloperModal()">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="modal-section">
-            <div class="modal-section-label">
-              <i class="fa-solid fa-server"></i> API Provider
-            </div>
-            <select
-              class="modal-select"
-              id="devProviderSelect"
-              onchange="onDevProviderChange()"
-              style="
-                width: 100%;
-                padding: 8px;
-                border-radius: 6px;
-                background: var(--bg);
-                color: var(--fg);
-                border: 1px solid var(--border);
-              "
-            >
-              <option value="openrouter">OpenRouter</option>
-              <option value="groq">Groq</option>
-              <option value="gemini">Gemini</option>
-            </select>
-          </div>
-
-          <div class="modal-section">
-            <div class="modal-section-label">
-              <i class="fa-solid fa-microchip"></i> Model
-            </div>
-            <select
-              class="modal-select"
-              id="devModelSelect"
-              onchange="onDevModelChange()"
-              style="
-                width: 100%;
-                padding: 8px;
-                border-radius: 6px;
-                background: var(--bg);
-                color: var(--fg);
-                border: 1px solid var(--border);
-              "
-            ></select>
-            <input
-              type="text"
-              id="devCustomModelInput"
-              class="modal-input"
-              placeholder="Enter custom model id (e.g. meta-llama/llama-3.2-3b-instruct)"
-              style="display: none; margin-top: 8px"
-            />
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="modal-save-btn" onclick="startDeveloperSession()">
-            <i class="fa-solid fa-play"></i> Start Session
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- â•â•â•â•â•â•â•â• DEVELOPER SIDEBAR â•â•â•â•â•â•â•â• -->
-    <div
-      class="developer-sidebar"
-      id="developerSidebar"
-      style="
-        display: none;
-        position: fixed;
-        right: 0;
-        top: 0;
-        width: 300px;
-        height: 100%;
-        background: var(--bg);
-        border-left: 1px solid var(--border);
-        z-index: 9999;
-        padding: 20px;
-        box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
-        overflow-y: auto;
-      "
-    >
-      <div
-        class="sidebar-header"
-        style="
-          margin-bottom: 20px;
-          border-bottom: 1px solid var(--border);
-          padding-bottom: 10px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        "
-      >
-        <h3 style="margin: 0; font-size: 1.2rem">
-          <i class="fa-solid fa-code" style="color: var(--accent)"></i>
-          Developer Tools
-        </h3>
-        <button
-          onclick="toggleDevSidebar()"
-          style="
-            background: none;
-            border: none;
-            color: var(--fg);
-            font-size: 1.2rem;
-            cursor: pointer;
-          "
-        >
-          <i class="fa-solid fa-times"></i>
-        </button>
-      </div>
-      <div class="sidebar-body">
-        <label
-          style="
-            display: block;
-            margin-bottom: 5px;
-            font-size: 0.85em;
-            font-weight: bold;
-            color: var(--fg);
-          "
-          >API Provider</label
-        >
-        <select
-          class="modal-select"
-          id="sideDevProviderSelect"
-          onchange="onSideDevProviderChange()"
-          style="
-            width: 100%;
-            padding: 8px;
-            border-radius: 6px;
-            background: var(--surface);
-            color: var(--fg);
-            border: 1px solid var(--border);
-            margin-bottom: 15px;
-          "
-        >
-          <option value="openrouter">OpenRouter</option>
-          <option value="groq">Groq</option>
-          <option value="gemini">Gemini</option>
-        </select>
-
-        <label
-          style="
-            display: block;
-            margin-bottom: 5px;
-            font-size: 0.85em;
-            font-weight: bold;
-            color: var(--fg);
-          "
-          >Model</label
-        >
-        <select
-          class="modal-select"
-          id="sideDevModelSelect"
-          onchange="onSideDevModelChange()"
-          style="
-            width: 100%;
-            padding: 8px;
-            border-radius: 6px;
-            background: var(--surface);
-            color: var(--fg);
-            border: 1px solid var(--border);
-          "
-        ></select>
-        <input
-          type="text"
-          id="sideDevCustomModelInput"
-          class="modal-input"
-          placeholder="Custom model id"
-          style="
-            display: none;
-            margin-top: 8px;
-            background: var(--surface);
-            color: white;
-          "
-        />
-
-        <button
-          class="modal-save-btn"
-          onclick="applySidebarDevConfig()"
-          style="margin-top: 20px; width: 100%"
-        >
-          <i class="fa-solid fa-check"></i> Apply Changes
-        </button>
-      </div>
-    </div>
-
-    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     VOICE OVERLAY
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-    <div class="voice-overlay" id="voiceOverlay">
-      <div class="voice-modal">
-        <div class="voice-title">Speak with Heros</div>
-        <div class="voice-sub">
-          Tap Speak, say something, and hear the AI respond.
-        </div>
-        <div class="ball-container">
-          <canvas id="voiceCanvas" width="200" height="200"></canvas>
-        </div>
-        <div class="voice-controls">
-          <button
-            class="v-btn speak"
-            id="speakBtn"
-            onclick="toggleVoiceSession()"
-          >
-            <i class="fa-solid fa-microphone"></i> Speak
-          </button>
-          <button
-            class="v-btn wait-v"
-            id="waitVoiceBtn"
-            onclick="handleWaitButtonClick()"
-            disabled
-            title="Stop AI speech & start listening (Spacebar)"
-          >
-            <i class="fa-solid fa-hand"></i> Wait
-          </button>
-          <button
-            class="v-btn pause-v"
-            id="pauseVoiceBtn"
-            onclick="pauseVoiceReply()"
-            disabled
-          >
-            <i class="fa-solid fa-pause"></i> Pause
-          </button>
-          <button class="v-btn close-v" onclick="closeVoiceModal()">
-            <i class="fa-solid fa-xmark"></i> Close
-          </button>
-        </div>
-        <div class="voice-transcript" id="voiceTranscript">
-          Your speech will appear here…
-        </div>
-        <div class="voice-status" id="voiceStatus"></div>
-      </div>
-    </div>
-
-    <!-- SETTINGS MODAL (Two-pane, Claude-style) -->
-    <div class="modal-overlay" id="personalizationModal">
-      <div class="settings-card">
-        <button class="settings-close" onclick="closeModal('personalizationModal')">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-        <!-- Left nav -->
-        <div class="settings-nav">
-          <div class="settings-nav-section-label">Settings</div>
-          <div class="settings-nav-item active" id="snav-general" onclick="switchSettingsNav('general')">
-            <i class="fa-solid fa-sliders"></i> General
-          </div>
-          <div class="settings-nav-item" id="snav-personalization" onclick="switchSettingsNav('personalization')">
-            <i class="fa-regular fa-user"></i> Personalization
-          </div>
-          <div class="settings-nav-item" id="snav-instructions" onclick="switchSettingsNav('instructions')">
-            <i class="fa-solid fa-robot"></i> Custom Instructions
-          </div>
-          <div class="settings-nav-item" id="snav-developer" onclick="switchSettingsNav('developer')">
-            <i class="fa-solid fa-code"></i> Developer
-          </div>
-          <div class="settings-nav-section-label" style="margin-top: 10px;">More</div>
-          <div class="settings-nav-item" onclick="switchSettingsNav('account')" id="snav-account">
-            <i class="fa-regular fa-id-card"></i> Account
-          </div>
-          <div class="settings-nav-item" onclick="switchSettingsNav('apikeys')" id="snav-apikeys">
-            <i class="fa-solid fa-key"></i> API Keys
-          </div>
-          <div class="settings-nav-item" onclick="switchSettingsNav('apps')" id="snav-apps">
-            <i class="fa-solid fa-layer-group"></i> Apps &amp; Tools
-          </div>
-          <div class="settings-nav-item" onclick="switchSettingsNav('privacy')" id="snav-privacy">
-            <i class="fa-solid fa-shield-halved"></i> Privacy
-          </div>
-          <div class="settings-nav-item" onclick="switchSettingsNav('terms')" id="snav-terms">
-            <i class="fa-solid fa-file-contract"></i> Terms &amp; Policies
-          </div>
-          <div class="settings-nav-item" onclick="switchSettingsNav('about')" id="snav-about">
-            <i class="fa-solid fa-circle-info"></i> About Heros
-          </div>
-          <div class="settings-nav-item" onclick="switchSettingsNav('help')" id="snav-help">
-            <i class="fa-regular fa-circle-question"></i> Help &amp; Support
-          </div>
-        </div>
-        <!-- Right content -->
-        <div class="settings-content">
-
-          <div class="settings-panel" id="spanel-apikeys">
-            <div class="settings-panel-title">API Keys</div>
-            
-            <!-- Heros Platform API Key Card -->
-            <div class="modal-section" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <div style="width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; color: var(--accent);">
-                    <i class="fa-solid fa-bolt"></i>
-                  </div>
-                  <div>
-                    <strong style="font-size: 0.95rem; color: #fff;">Heros Platform API Key</strong>
-                    <span style="font-size: 0.72rem; color: var(--accent); background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px; margin-left: 6px; font-weight: 600;">sk-hero-...</span>
-                  </div>
-                </div>
-                <a href="/platform/?tab=apikeys" class="modal-save-btn" style="padding: 7px 14px; font-size: 0.82rem; text-decoration: none; width: auto; margin: 0; background: var(--accent); color: #fff;">
-                  <i class="fa-solid fa-key"></i> Get Heros API Key
-                </a>
+            <div class="tools-right">
+              <div id="inlineVoiceCanvasWrap"></div>
+              <button type="button" id="mainWaitBtn" class="wait-pill-btn" onclick="handleWaitButtonClick(event)" disabled title="Stop AI &amp; Listen (Spacebar)" style="display:none">
+                <i class="fa-solid fa-hand"></i> Wait
+              </button>
+              <div class="tooltip-container talk-pill" id="talkTooltipContainer" onclick="toggleInlineVoiceChat()" role="button" tabindex="0" title="Voice Conversation">
+                <span class="tooltip" id="talkTooltip">Say Hello to</span>
+                <span class="text" id="talkText"><i class="fa-solid fa-microphone-lines"></i> Talk</span>
+                <span id="voiceModelName" class="voice-model-name">Halo 3.6</span>
               </div>
-              <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0;">
-                Generate secret API keys from the developer console to access Heros AI endpoints, track usage tokens, and manage dedicated project workspaces.
-              </p>
-            </div>
-
-            <div class="modal-section">
-            <div class="modal-section-label">
-              <i class="fa-solid fa-star"></i> Gemini API Key
-              <span class="required-badge">Required </span>
-            </div>
-            <input
-              class="auth-input"
-              type="text"
-              id="geminiApiKey"
-              placeholder="Enter your Gemini API key"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-              data-lpignore="true"
-              data-1password-ignore="true"
-              data-form-type="other"
-              name="gemini_key_no_autofill"
-              style="width: 100%; -webkit-text-security: disc; -moz-text-security: disc;"
-            />
-            <div class="field-hint">
-              <i class="fa-solid fa-circle-info"></i> Get your Gemini API key:
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                style="color: var(--accent)"
-                >Google AI Studio</a
-              >
-            </div>
-          </div>
-          <div class="modal-section">
-            <div class="modal-section-label">
-              <i class="fa-solid fa-route"></i> OpenRouter API Key
-              <span class="required-badge">Required </span>
-            </div>
-            <input
-              class="auth-input"
-              type="text"
-              id="openrouterApiKey"
-              placeholder="Enter your OpenRouter API key"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-              data-lpignore="true"
-              data-1password-ignore="true"
-              data-form-type="other"
-              name="openrouter_key_no_autofill"
-              style="width: 100%; -webkit-text-security: disc; -moz-text-security: disc;"
-            />
-            <div class="field-hint">
-              <i class="fa-solid fa-circle-info"></i> Get your OpenRouter API
-              key:
-              <a
-                href="https://openrouter.ai/keys"
-                target="_blank"
-                style="color: var(--accent)"
-                >OpenRouter Dashboard</a
-              >
-            </div>
-          </div>
-          <div class="modal-section">
-            <div class="modal-section-label">
-              <i class="fa-solid fa-bolt"></i> Groq API Key
-              <span class="optional-badge">Optional</span>
-            </div>
-            <input
-              class="auth-input"
-              type="text"
-              id="groqApiKey"
-              placeholder="Enter your Groq API key for better performance (optional for fast experience)"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-              data-lpignore="true"
-              data-1password-ignore="true"
-              data-form-type="other"
-              name="groq_key_no_autofill"
-              style="width: 100%; -webkit-text-security: disc; -moz-text-security: disc;"
-            />
-            <div class="field-hint">
-              <i class="fa-solid fa-circle-info"></i> Get your Groq API key:
-              <a
-                href="https://console.groq.com/keys"
-                target="_blank"
-                style="color: var(--accent)"
-                >Groq Console</a
-              >
-            </div>
-          </div>
-          <div class="modal-section">
-            <div class="modal-section-label">
-              <i class="fa-solid fa-face-smile"></i> Hugging Face API Key
-              <span class="optional-badge">Optional</span>
-            </div>
-            <input
-              class="auth-input"
-              type="text"
-              id="huggingfaceApiKey"
-              placeholder="Enter your Hugging Face API key (optional for Halo model)"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-              data-lpignore="true"
-              data-1password-ignore="true"
-              data-form-type="other"
-              name="hf_key_no_autofill"
-              style="width: 100%; -webkit-text-security: disc; -moz-text-security: disc;"
-            />
-            <div class="field-hint">
-              <i class="fa-solid fa-circle-info"></i> Get your Hugging Face token:
-              <a
-                href="https://huggingface.co/settings/tokens"
-                target="_blank"
-                style="color: var(--accent)"
-                >Hugging Face Settings</a
-              >
-            </div>
-          </div>
-          <div class="api-info-box">
-            <i class="fa-solid fa-shield-halved"></i>
-            <div>
-              <strong>Your API keys are stored securely</strong><br /><span
-                style="font-size: 0.78rem; color: var(--text-muted)"
-                >All keys are encrypted and stored on the server — never exposed
-                to the browser.</span
-              >
-            </div>
-          </div>
-        
-            <div style="margin-top: 20px;">
-              
-          <button class="modal-save-btn" onclick="saveApiKeys()">
-            <i class="fa-solid fa-floppy-disk"></i> Save API Keys
-          </button>
-        
-            </div>
-          </div>
-
-          
-          <!-- Account Panel -->
-          <div class="settings-panel" id="spanel-account">
-            <div class="settings-panel-title">Account Info</div>
-            <div class="modal-section">
-              <div style="margin-top: 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px;">
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 20px;">
-                  <div style="width: 50px; height: 50px; border-radius: 50%; background: var(--surface-light, rgba(255,255,255,0.05)); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: var(--text-color, #fff);">
-                    <i class="fa-solid fa-user"></i>
-                  </div>
-                  <div>
-                    <div style="font-size: 1.2rem; font-weight: 600; color: white;">{{ username|default:"Not set" }}</div>
-                    <div style="font-size: 0.9rem; color: var(--text-muted);">{{ email|default:"Not set" }}</div>
-                  </div>
-                </div>
-                
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
-                    <span style="color: var(--text-muted);"><i class="fa-solid fa-id-badge" style="width: 20px;"></i> User ID</span>
-                    <span style="font-family: monospace; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">{{ request.session.user_id|default:"Guest" }}</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
-                    <span style="color: var(--text-muted);"><i class="fa-solid fa-circle-check" style="width: 20px; color: var(--accent, #fff);"></i> Status</span>
-                    <span style="color: var(--text-color, #fff); font-weight: 500; font-size: 0.9rem;">Active</span>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
-                    <span style="color: var(--text-muted);"><i class="fa-solid fa-crown" style="width: 20px;"></i> Subscription</span>
-                    <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-color, #fff); background: var(--surface-light, rgba(255,255,255,0.05)); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);">Heros 5 Free</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div style="margin-top: 15px;">
-              <button onclick="handleLogout()" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 77, 79, 0.3); background: rgba(255, 77, 79, 0.05); color: #ff4d4f; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;" onmouseover="this.style.background='rgba(255, 77, 79, 0.15)'" onmouseout="this.style.background='rgba(255, 77, 79, 0.05)'">
-                <i class="fa-solid fa-arrow-right-from-bracket"></i> Log Out
+              <button type="button" id="sendMicBtn" onclick="handleSendMicClick()" class="mic-btn" title="Talk to AI" aria-label="Send or dictate">
+                <i id="sendMicIcon" class="fa-solid fa-microphone"></i>
               </button>
             </div>
           </div>
+        </div>
+      </div>
 
-          <!-- Apps & Tools Panel -->
-          <div class="settings-panel" id="spanel-apps">
-            <div class="settings-panel-title">Apps &amp; Tools</div>
-            <p style="color: var(--text-muted); margin-bottom: 20px;">Explore the full Heros ecosystem.</p>
-            
-            <div class="help-item" style="align-items: center;">
-              <div class="help-icon"><i class="fa-brands fa-chrome"></i></div>
-              <div class="help-text-group" style="flex:1;">
-                <div class="help-title">Zeno Pro 3.5</div>
-                <div class="help-desc">Your mini AI assistant Chrome extension for instant chatting.</div>
-              </div>
-              <a href="https://github.com/Hudsonmathew1910/Hero-s-AI/releases/download/Heros_5th_Gen/Zeno_Pro_3.5.zip" target="_blank" class="modal-save-btn" style="padding: 6px 12px; font-size: 0.85rem; text-decoration: none; width: auto; margin: 0;">Download</a>
+      <div class="suggestion-chips">
+        <button type="button" class="chip" onclick="setModeCodingAndPrompt()"><i class="fa-solid fa-code"></i> Code</button>
+        <button type="button" class="chip" onclick="fillSuggestion('Summarize this text:')"><i class="fa-solid fa-align-left"></i> Summarize</button>
+        <button type="button" class="chip" onclick="fillSuggestion('Explain this concept:')"><i class="fa-solid fa-brain"></i> Explain</button>
+        <button type="button" class="chip" onclick="fillSuggestion('Write a blog:')"><i class="fa-solid fa-pen-nib"></i> Write</button>
+      </div>
+
+      <div class="input-hint">Heros can make mistakes. Verify important information.</div>
+    </div>
+  </div>
+{% endblock %}
+
+{# ───────────────────────── Modals ───────────────────────── #}
+{% block modals %}
+  {% if error %}<div id="serverError" data-error="{{ error }}" hidden></div>{% endif %}
+
+  <!-- Auth -->
+  <div class="auth-screen" id="authScreen" role="dialog" aria-modal="true" aria-label="Sign in to Heros">
+    <div class="auth-card">
+      <button type="button" class="modal-close auth-skip" onclick="hideAuthScreen()" title="Skip for now" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      <div class="auth-logo">
+        <img src="{% static 'images/Hero_ai.png' %}" alt="" class="brand-logo lg" />
+        <h2 class="auth-title">Welcome to Heros</h2>
+        <p class="auth-sub">Sign in to save chats, unlock Baymax and personalize your assistant.</p>
+      </div>
+
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Sign in</button>
+        <button type="button" class="auth-tab" id="tabSignup" onclick="switchAuthTab('signup')">Create account</button>
+      </div>
+
+      <div id="loginForm" class="auth-form">
+        <button type="button" class="auth-google-btn" onclick="handleGoogleAuth('signin')">{% include "partials/google_icon.html" %} Continue with Google</button>
+        <div class="auth-divider"><span>or continue with email</span></div>
+        <div class="auth-input-group">
+          <label class="auth-label" for="loginEmail">Email</label>
+          <input class="auth-input" type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div class="auth-input-group">
+          <label class="auth-label" for="loginPassword">Password</label>
+          <input class="auth-input" type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')handleLogin()" />
+        </div>
+        <button type="button" class="btn btn-lg btn-block auth-btn" onclick="handleLogin()">Sign in <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+
+      <div id="signupForm" class="auth-form" style="display:none">
+        <button type="button" class="auth-google-btn" onclick="handleGoogleAuth('signup')">{% include "partials/google_icon.html" %} Continue with Google</button>
+        <div class="auth-divider"><span>or continue with email</span></div>
+        <div class="auth-input-group">
+          <label class="auth-label" for="signupName">Full name</label>
+          <input class="auth-input" type="text" id="signupName" placeholder="Your name" autocomplete="name" />
+        </div>
+        <div class="auth-input-group">
+          <label class="auth-label" for="signupEmail">Email</label>
+          <input class="auth-input" type="email" id="signupEmail" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div class="auth-input-group">
+          <label class="auth-label" for="signupPassword">Password</label>
+          <input class="auth-input" type="password" id="signupPassword" placeholder="Create a strong password" autocomplete="new-password" onkeydown="if(event.key==='Enter')handleSignup()" />
+        </div>
+        <button type="button" class="btn btn-lg btn-block auth-btn" onclick="handleSignup()">Create account <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+
+      <div id="googleSetupForm" class="auth-form" style="display:none">
+        <p class="auth-note">Complete your account setup.<br />We have your email, just need a username and password.</p>
+        <div class="auth-input-group">
+          <label class="auth-label" for="googleSetupName">Username</label>
+          <input class="auth-input" type="text" id="googleSetupName" placeholder="Your name" />
+        </div>
+        <div class="auth-input-group">
+          <label class="auth-label" for="googleSetupPassword">Password</label>
+          <input class="auth-input" type="password" id="googleSetupPassword" placeholder="Create a strong password" />
+        </div>
+        <button type="button" class="btn btn-lg btn-block auth-btn" onclick="handleGoogleSetup()">Complete setup <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+
+      <div class="auth-footer">
+        By continuing you agree to our <a href="{% url 'terms' %}" target="_blank">Terms of Service</a> and
+        <a href="{% url 'privacy' %}" target="_blank">Privacy Policy</a>.
+      </div>
+    </div>
+  </div>
+
+  <!-- Developer mode setup -->
+  <div class="modal-overlay" id="developerModal">
+    <div class="modal-panel modal-card">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title"><i class="fa-solid fa-code"></i> Developer Mode Setup</div>
+          <p>Pick a provider and model. Developer sessions are temporary and use your own API keys.</p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeDeveloperModal()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label class="modal-section-label" for="devProviderSelect"><i class="fa-solid fa-server"></i> API Provider</label>
+          <select class="modal-select" id="devProviderSelect" onchange="onDevProviderChange()">
+            <option value="openrouter">OpenRouter</option>
+            <option value="groq">Groq</option>
+            <option value="gemini">Gemini</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="modal-section-label" for="devModelSelect"><i class="fa-solid fa-microchip"></i> Model</label>
+          <select class="modal-select" id="devModelSelect" onchange="onDevModelChange()"></select>
+          <input type="text" id="devCustomModelInput" class="modal-input" placeholder="Enter custom model id (e.g. meta-llama/llama-3.2-3b-instruct)" style="display:none; margin-top:8px" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeDeveloperModal()">Cancel</button>
+        <button type="button" class="btn" onclick="startDeveloperSession()"><i class="fa-solid fa-play"></i> Start Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Developer tools side panel -->
+  <aside class="developer-sidebar" id="developerSidebar" style="display:none" aria-label="Developer tools">
+    <div class="sidebar-header">
+      <h3><i class="fa-solid fa-code"></i> Developer Tools</h3>
+      <button type="button" class="modal-close" onclick="toggleDevSidebar()" aria-label="Close"><i class="fa-solid fa-times"></i></button>
+    </div>
+    <div class="sidebar-body">
+      <label class="field-label" for="sideDevProviderSelect">API Provider</label>
+      <select class="modal-select" id="sideDevProviderSelect" onchange="onSideDevProviderChange()">
+        <option value="openrouter">OpenRouter</option>
+        <option value="groq">Groq</option>
+        <option value="gemini">Gemini</option>
+      </select>
+      <label class="field-label" for="sideDevModelSelect">Model</label>
+      <select class="modal-select" id="sideDevModelSelect" onchange="onSideDevModelChange()"></select>
+      <input type="text" id="sideDevCustomModelInput" class="modal-input" placeholder="Custom model id" style="display:none" />
+      <button type="button" class="btn btn-block" onclick="applySidebarDevConfig()"><i class="fa-solid fa-check"></i> Apply Changes</button>
+      <p class="field-hint">Changes apply to the next message in this developer session.</p>
+    </div>
+  </aside>
+
+  <!-- Voice conversation -->
+  <div class="modal-overlay voice-overlay" id="voiceOverlay">
+    <div class="voice-modal">
+      <button type="button" class="modal-close voice-close-x" onclick="closeVoiceModal()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      <div class="voice-title">Speak with Heros</div>
+      <div class="voice-sub">Tap Speak, say something, and hear the AI respond.</div>
+      <div class="ball-container">
+        <canvas id="voiceCanvas" width="200" height="200"></canvas>
+      </div>
+      <div class="voice-transcript" id="voiceTranscript">Your speech will appear here…</div>
+      <div class="voice-status" id="voiceStatus"></div>
+      <div class="voice-controls">
+        <button type="button" class="v-btn speak" id="speakBtn" onclick="toggleVoiceSession()"><i class="fa-solid fa-microphone"></i> Speak</button>
+        <button type="button" class="v-btn wait-v" id="waitVoiceBtn" onclick="handleWaitButtonClick()" disabled title="Stop AI speech &amp; start listening (Spacebar)"><i class="fa-solid fa-hand"></i> Wait</button>
+        <button type="button" class="v-btn pause-v" id="pauseVoiceBtn" onclick="pauseVoiceReply()" disabled><i class="fa-solid fa-pause"></i> Pause</button>
+        <button type="button" class="v-btn close-v" onclick="closeVoiceModal()"><i class="fa-solid fa-xmark"></i> Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="modal-overlay" id="personalizationModal">
+    <div class="settings-card" role="dialog" aria-modal="true" aria-label="Settings">
+      <nav class="settings-nav">
+        <div class="settings-nav-head">
+          <span>Settings</span>
+          <button type="button" class="modal-close settings-close" onclick="closeModal('personalizationModal')" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="settings-nav-section-label">Settings</div>
+        <button type="button" class="settings-nav-item active" id="snav-general" onclick="switchSettingsNav('general')"><i class="fa-solid fa-sliders"></i> General</button>
+        <button type="button" class="settings-nav-item" id="snav-personalization" onclick="switchSettingsNav('personalization')"><i class="fa-regular fa-user"></i> Personalization</button>
+        <button type="button" class="settings-nav-item" id="snav-instructions" onclick="switchSettingsNav('instructions')"><i class="fa-solid fa-robot"></i> Custom Instructions</button>
+        <button type="button" class="settings-nav-item" id="snav-developer" onclick="switchSettingsNav('developer')"><i class="fa-solid fa-code"></i> Developer</button>
+        <div class="settings-nav-section-label">More</div>
+        <button type="button" class="settings-nav-item" id="snav-account" onclick="switchSettingsNav('account')"><i class="fa-regular fa-id-card"></i> Account</button>
+        <button type="button" class="settings-nav-item" id="snav-apikeys" onclick="switchSettingsNav('apikeys')"><i class="fa-solid fa-key"></i> API Keys</button>
+        <button type="button" class="settings-nav-item" id="snav-apps" onclick="switchSettingsNav('apps')"><i class="fa-solid fa-layer-group"></i> Apps &amp; Tools</button>
+        <button type="button" class="settings-nav-item" id="snav-privacy" onclick="switchSettingsNav('privacy')"><i class="fa-solid fa-shield-halved"></i> Privacy</button>
+        <button type="button" class="settings-nav-item" id="snav-terms" onclick="switchSettingsNav('terms')"><i class="fa-solid fa-file-contract"></i> Terms &amp; Policies</button>
+        <button type="button" class="settings-nav-item" id="snav-about" onclick="switchSettingsNav('about')"><i class="fa-solid fa-circle-info"></i> About Heros</button>
+        <button type="button" class="settings-nav-item" id="snav-help" onclick="switchSettingsNav('help')"><i class="fa-regular fa-circle-question"></i> Help &amp; Support</button>
+      </nav>
+
+      <div class="settings-content">
+        <button type="button" class="modal-close settings-close-desktop" onclick="closeModal('personalizationModal')" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+
+        <!-- General -->
+        <section class="settings-panel active" id="spanel-general">
+          <h2 class="settings-panel-title">General</h2>
+          <div class="modal-section">
+            <div class="modal-section-label"><i class="fa-solid fa-circle-half-stroke"></i> Appearance</div>
+            <div class="theme-switcher">
+              <button type="button" class="theme-btn" id="theme-light-btn" onclick="setTheme('light', this)"><div class="theme-preview light-prev"><span></span><span></span></div>Light</button>
+              <button type="button" class="theme-btn" id="theme-dark-btn" onclick="setTheme('dark', this)"><div class="theme-preview dark-prev"><span></span><span></span></div>Dark</button>
             </div>
+          </div>
+          <div class="modal-section">
+            <div class="modal-section-label"><i class="fa-solid fa-display"></i> Display</div>
+            <div class="toggle-row"><span class="toggle-label">Auto-read AI responses aloud</span><button type="button" class="toggle" data-setting="autoReadResponses" onclick="toggleSetting('autoReadResponses')" aria-label="Auto-read AI responses aloud"></button></div>
+            <div class="toggle-row"><span class="toggle-label">Compact message layout</span><button type="button" class="toggle" data-setting="compactLayout" onclick="toggleSetting('compactLayout')" aria-label="Compact message layout"></button></div>
+            <div class="toggle-row"><span class="toggle-label">Code syntax highlighting</span><button type="button" class="toggle on" data-setting="syntaxHighlighting" onclick="toggleSetting('syntaxHighlighting')" aria-label="Code syntax highlighting"></button></div>
+          </div>
+          <div class="modal-section">
+            <div class="modal-section-label"><i class="fa-solid fa-comments"></i> Chat</div>
+            <div class="toggle-row"><span class="toggle-label">Remember conversation history</span><button type="button" class="toggle" data-setting="rememberHistory" onclick="toggleSetting('rememberHistory')" aria-label="Remember conversation history"></button></div>
+            <div class="toggle-row"><div><span class="toggle-label">Enable developer model option</span><div class="toggle-sub">Adds “Developer Mode” to the model picker (signed-in users).</div></div><button type="button" class="toggle" data-setting="developerOption" onclick="toggleSetting('developerOption')" aria-label="Enable developer model option"></button></div>
+          </div>
+        </section>
 
-            <div class="help-item" style="align-items: center;">
+        <!-- Personalization -->
+        <section class="settings-panel" id="spanel-personalization">
+          <h2 class="settings-panel-title">Personalization</h2>
+          <div class="field">
+            <label class="modal-section-label" for="aboutName"><i class="fa-regular fa-user"></i> Your Name</label>
+            <input class="auth-input" type="text" id="aboutName" placeholder="What should Heros call you?" />
+          </div>
+          <div class="field">
+            <label class="modal-section-label" for="aboutRole"><i class="fa-solid fa-briefcase"></i> What do you do?</label>
+            <textarea class="modal-textarea" id="aboutRole" placeholder="e.g. I'm a student studying computer science…"></textarea>
+          </div>
+          <div class="field">
+            <label class="modal-section-label" for="aboutInterests"><i class="fa-solid fa-star"></i> Interests &amp; Goals</label>
+            <textarea class="modal-textarea" id="aboutInterests" placeholder="e.g. I enjoy gaming, graphic design…"></textarea>
+            <div class="field-hint">Heros uses this to give you more relevant responses.</div>
+          </div>
+          <div class="panel-actions"><button type="button" class="btn modal-save-btn" onclick="savePersonalization(this)"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+        </section>
+
+        <!-- Custom instructions -->
+        <section class="settings-panel" id="spanel-instructions">
+          <h2 class="settings-panel-title">Custom Instructions</h2>
+          <div class="modal-section">
+            <div class="toggle-row"><span class="toggle-label">Use custom instructions in conversations</span><button type="button" class="toggle on" data-setting="enableCustomInstructions" onclick="toggleSetting('enableCustomInstructions')" aria-label="Use custom instructions"></button></div>
+          </div>
+          <div class="field">
+            <label class="modal-section-label" for="instructionContext"><i class="fa-solid fa-circle-info"></i> What should Heros know about you?</label>
+            <textarea class="modal-textarea" id="instructionContext" placeholder="e.g. I'm a beginner Python developer…"></textarea>
+            <div class="field-hint">This context is sent with every conversation if enabled.</div>
+          </div>
+          <div class="field">
+            <label class="modal-section-label" for="instructionBehavior"><i class="fa-solid fa-robot"></i> How should Heros respond?</label>
+            <textarea class="modal-textarea" id="instructionBehavior" placeholder="e.g. Be friendly and encouraging…"></textarea>
+            <div class="field-hint">These are your personal AI behavior rules.</div>
+          </div>
+          <div class="panel-actions"><button type="button" class="btn modal-save-btn" onclick="savePersonalization(this)"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+        </section>
+
+        <!-- Developer -->
+        <section class="settings-panel" id="spanel-developer">
+          <h2 class="settings-panel-title">Developer Platform</h2>
+          <p class="panel-lede">Build intelligent applications, agents, and backend workflows with Heros high-speed fallback inference engine and developer tools.</p>
+          <div class="info-card">
+            <div class="info-card-head"><span><i class="fa-solid fa-code"></i> OpenAI SDK Compatible</span><span class="badge mono">v1/chat/completions</span></div>
+            <p>Drop Heros base URL and secret API key straight into any official OpenAI Python or Node.js library without rewriting code.</p>
+            <div class="code-line">POST https://hero-s-ai.alwaysdata.net/api/v1/chat/completions</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-head"><span><i class="fa-solid fa-microchip"></i> Models &amp; Multimodal Endpoints</span></div>
+            <ul class="dot-list">
+              <li><strong>Baymax 4.5:</strong> High-speed reasoning with real-time web search retrieval grounding.</li>
+              <li><strong>Halo 2.0 / 3.6:</strong> Multimodal deep analytical thinking &amp; code generation.</li>
+              <li><strong>Speech Audio APIs:</strong> High-accuracy Whisper transcription (<code>/api/transcribe</code>) and TTS stream generation (<code>/api/tts</code>).</li>
+              <li><strong>Project Sandboxing:</strong> Organize secret keys, isolate environments, and monitor usage metrics.</li>
+            </ul>
+          </div>
+          <div class="panel-actions">
+            <a href="{% url 'platform' %}" class="btn"><i class="fa-solid fa-terminal"></i> Open Developer Platform</a>
+            <a href="/platform/?tab=docs_heros" class="btn btn-outline"><i class="fa-solid fa-book"></i> Browse Developer Documentation</a>
+          </div>
+        </section>
+
+        <!-- Account -->
+        <section class="settings-panel" id="spanel-account">
+          <h2 class="settings-panel-title">Account Info</h2>
+          <div class="account-card">
+            <div class="account-card-head">
+              <div class="user-avatar lg"><i class="fa-solid fa-user"></i></div>
+              <div>
+                <div class="account-name">{{ username|default:"Not set" }}</div>
+                <div class="account-email">{{ email|default:"Not set" }}</div>
+              </div>
+            </div>
+            <dl class="kv-list">
+              <div><dt><i class="fa-solid fa-id-badge"></i> User ID</dt><dd class="mono">{{ request.session.user_id|default:"Guest" }}</dd></div>
+              <div><dt><i class="fa-solid fa-circle-check"></i> Status</dt><dd><span class="badge badge-success">Active</span></dd></div>
+              <div><dt><i class="fa-solid fa-crown"></i> Subscription</dt><dd>Heros 5 Free</dd></div>
+            </dl>
+          </div>
+          <div class="panel-actions"><button type="button" class="btn btn-danger-outline" onclick="handleLogout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Log Out</button></div>
+        </section>
+
+        <!-- API Keys -->
+        <section class="settings-panel" id="spanel-apikeys">
+          <h2 class="settings-panel-title">API Keys</h2>
+          <div class="promo-card">
+            <div class="promo-icon"><i class="fa-solid fa-bolt"></i></div>
+            <div class="promo-text">
+              <strong>Heros Platform API Key</strong>
+              <span class="mono">sk-hero-...</span>
+              <p>Generate secret API keys from the developer console to access Heros AI endpoints, track usage tokens, and manage dedicated project workspaces.</p>
+            </div>
+            <a href="/platform/?tab=apikeys" class="btn btn-sm"><i class="fa-solid fa-key"></i> Get Heros API Key</a>
+          </div>
+
+          <div class="field">
+            <label class="modal-section-label" for="geminiApiKey"><i class="fa-solid fa-star"></i> Gemini API Key <span class="required-badge">Required</span></label>
+            <input class="auth-input key-input" type="text" id="geminiApiKey" placeholder="Enter your Gemini API key" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1password-ignore="true" data-form-type="other" name="gemini_key_no_autofill" />
+            <div class="field-hint"><i class="fa-solid fa-circle-info"></i> Get your Gemini API key: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></div>
+          </div>
+          <div class="field">
+            <label class="modal-section-label" for="openrouterApiKey"><i class="fa-solid fa-route"></i> OpenRouter API Key <span class="required-badge">Required</span></label>
+            <input class="auth-input key-input" type="text" id="openrouterApiKey" placeholder="Enter your OpenRouter API key" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1password-ignore="true" data-form-type="other" name="openrouter_key_no_autofill" />
+            <div class="field-hint"><i class="fa-solid fa-circle-info"></i> Get your OpenRouter API key: <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter Dashboard</a></div>
+          </div>
+          <div class="field">
+            <label class="modal-section-label" for="groqApiKey"><i class="fa-solid fa-bolt"></i> Groq API Key <span class="optional-badge">Optional</span></label>
+            <input class="auth-input key-input" type="text" id="groqApiKey" placeholder="Enter your Groq API key for better performance (optional for fast experience)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1password-ignore="true" data-form-type="other" name="groq_key_no_autofill" />
+            <div class="field-hint"><i class="fa-solid fa-circle-info"></i> Get your Groq API key: <a href="https://console.groq.com/keys" target="_blank" rel="noopener">Groq Console</a></div>
+          </div>
+          <div class="field">
+            <label class="modal-section-label" for="huggingfaceApiKey"><i class="fa-solid fa-face-smile"></i> Hugging Face API Key <span class="optional-badge">Optional</span></label>
+            <input class="auth-input key-input" type="text" id="huggingfaceApiKey" placeholder="Enter your Hugging Face API key (optional for Halo model)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1password-ignore="true" data-form-type="other" name="hf_key_no_autofill" />
+            <div class="field-hint"><i class="fa-solid fa-circle-info"></i> Get your Hugging Face token: <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">Hugging Face Settings</a></div>
+          </div>
+          <div class="api-info-box">
+            <i class="fa-solid fa-shield-halved"></i>
+            <div><strong>Your API keys are stored securely</strong><br /><span>All keys are encrypted and stored on the server — never exposed to the browser.</span></div>
+          </div>
+          <div class="panel-actions"><button type="button" class="btn modal-save-btn" id="saveApiKeysBtn" onclick="saveApiKeys()"><i class="fa-solid fa-floppy-disk"></i> Save API Keys</button></div>
+        </section>
+
+        <!-- Apps & tools -->
+        <section class="settings-panel" id="spanel-apps">
+          <h2 class="settings-panel-title">Apps &amp; Tools</h2>
+          <p class="panel-lede">Explore the full Heros ecosystem.</p>
+          <div class="app-list">
+            <div class="help-item">
+              <div class="help-icon"><i class="fa-brands fa-chrome"></i></div>
+              <div class="help-text-group"><div class="help-title">Zeno Pro 3.5</div><div class="help-desc">Your mini AI assistant Chrome extension for instant chatting.</div></div>
+              <a href="https://github.com/Hudsonmathew1910/Hero-s-AI/releases/download/Heros_5th_Gen/Zeno_Pro_3.5.zip" target="_blank" rel="noopener" class="btn btn-sm btn-outline">Download</a>
+            </div>
+            <div class="help-item">
               <div class="help-icon"><i class="fa-solid fa-music"></i></div>
-              <div class="help-text-group" style="flex:1;">
-                <div class="help-title">Zuno 2.1</div>
-                <div class="help-desc">Intelligent voice-controlled music assistant integrated into Zeno.</div>
-              </div>
-              <a href="{% url 'zuno_index' %}" target="_blank" class="modal-save-btn" style="padding: 6px 12px; font-size: 0.85rem; text-decoration: none; width: auto; margin: 0;">Launch</a>
+              <div class="help-text-group"><div class="help-title">Zuno 2.1</div><div class="help-desc">Intelligent voice-controlled music assistant integrated into Zeno.</div></div>
+              <a href="{% url 'zuno_index' %}" class="btn btn-sm btn-outline">Launch</a>
             </div>
-
-            <div class="help-item" style="align-items: center;">
+            <div class="help-item">
               <div class="help-icon"><i class="fa-solid fa-chart-pie"></i></div>
-              <div class="help-text-group" style="flex:1;">
-                <div class="help-title">Infinsight AI Analyst</div>
-                <div class="help-desc">Upload datasets to generate interactive visualizations and insights.</div>
-              </div>
-              <a href="{% url 'infinsight_home' %}" target="_blank" class="modal-save-btn" style="padding: 6px 12px; font-size: 0.85rem; text-decoration: none; width: auto; margin: 0;">Launch</a>
+              <div class="help-text-group"><div class="help-title">Infinsight AI Analyst</div><div class="help-desc">Upload datasets to generate interactive visualizations and insights.</div></div>
+              <a href="{% url 'infinsight_home' %}" class="btn btn-sm btn-outline">Launch</a>
             </div>
-
-            <div class="help-item" style="align-items: center;">
+            <div class="help-item">
               <div class="help-icon"><i class="fa-solid fa-terminal"></i></div>
-              <div class="help-text-group" style="flex:1;">
-                <div class="help-title">Platform</div>
-                <div class="help-desc">Manage API keys, projects, rate limits, and live metrics dashboard.</div>
-              </div>
-              <a href="{% url 'platform' %}" class="modal-save-btn" style="padding: 6px 12px; font-size: 0.85rem; text-decoration: none; width: auto; margin: 0;">Open</a>
+              <div class="help-text-group"><div class="help-title">Platform</div><div class="help-desc">Manage API keys, projects, rate limits, and live metrics dashboard.</div></div>
+              <a href="{% url 'platform' %}" class="btn btn-sm btn-outline">Open</a>
             </div>
-
-            <div class="help-item" style="align-items: center;">
+            <div class="help-item">
               <div class="help-icon"><i class="fa-solid fa-compass"></i></div>
-              <div class="help-text-group" style="flex:1;">
-                <div class="help-title">Discover Heros</div>
-                <div class="help-desc">Explore Heros AI architecture, model comparisons, and showcase.</div>
-              </div>
-              <a href="{% url 'landing' %}" class="modal-save-btn" style="padding: 6px 12px; font-size: 0.85rem; text-decoration: none; width: auto; margin: 0;">Explore</a>
+              <div class="help-text-group"><div class="help-title">Discover Heros</div><div class="help-desc">Explore Heros AI architecture, model comparisons, and showcase.</div></div>
+              <a href="{% url 'landing' %}" class="btn btn-sm btn-outline">Explore</a>
             </div>
           </div>
+        </section>
 
-          <!-- Privacy Panel -->
-          <div class="settings-panel" id="spanel-privacy">
-            <div class="settings-panel-title">Privacy &amp; Security</div>
-            
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-shield-halved"></i> Data Collection &amp; Usage</div>
-              <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 15px;">
-                Your privacy is our top priority. We firmly believe that your data belongs to you. Heros does <strong>not</strong> collect personal conversation data to train our AI models. Any queries you make are processed strictly for generating your immediate response.
-              </p>
-            </div>
-            
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-key"></i> API Key Encryption</div>
-              <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 15px;">
-                All API keys (Gemini, Groq, OpenRouter, Hugging Face) you provide are immediately encrypted locally using industry-standard AES-256 encryption before being stored on the server. The raw keys are <strong>never</strong> exposed back to the frontend browser, ensuring they cannot be intercepted by malicious extensions.
-              </p>
-            </div>
-
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-memory"></i> Ephemeral Sessions (Zeno)</div>
-              <p style="color: var(--text-muted); line-height: 1.6;">
-                When you use "Temporary Chat" modes (like the Zeno Extension), your entire chat history is maintained completely in-memory during the active session. Once you close the session, the data is instantly discarded without ever touching our database.
-              </p>
-            </div>
+        <!-- Privacy -->
+        <section class="settings-panel" id="spanel-privacy">
+          <h2 class="settings-panel-title">Privacy &amp; Security</h2>
+          <div class="info-card">
+            <div class="info-card-head"><span><i class="fa-solid fa-shield-halved"></i> Data Collection &amp; Usage</span></div>
+            <p>Your privacy is our top priority. We firmly believe that your data belongs to you. Heros does <strong>not</strong> collect personal conversation data to train our AI models. Any queries you make are processed strictly for generating your immediate response.</p>
           </div>
-
-          <div class="settings-panel" id="spanel-about">
-            <div class="settings-panel-title">About Heros</div>
-            <div class="about-logo-wrap">
-          <img src="{% static 'images/Hero_ai.png' %}" alt="Heros" />
-        </div>
-        <div class="about-title">Heros</div>
-        <div class="about-badge">Heros 5th Gen</div>
-        <p class="about-desc">
-          Heros is your intelligent personal assistant — built for code,
-          creativity, conversations, and everything in between. Powered by
-          Baymax 4.5 and Halo 3.6.
-        </p>
-                  <div class="about-coming-soon">
-          <i class="fa-solid fa-sparkles"></i>
-          <h3>What's New in Heros 5th Gen</h3>
-          <p style="margin-bottom: 10px;">
-            <strong>Fast Mode Routing:</strong> Heros now dynamically races Gemini, Groq, and OpenRouter in parallel, returning the fastest available response to ensure you never face 503 downtimes.
-          </p>
-          <p style="margin-bottom: 10px;">
-            <strong>Zeno Pro 3.5 & Zuno 2.1:</strong> Redesigned Zuno interface to match Heros ecosystem, with completely overhauled fallback models for Zeno Extension to prevent hallucinations.
-          </p>
-          <p>
-            <strong>Deep Web Search:</strong> Upgraded scraping pipeline using DuckDuckGo, Wikipedia, Serply and Serpstack concurrently.
-          </p>
-        </div>
-        <div style="margin-bottom: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-          <a href="{% url 'landing' %}" class="modal-save-btn" style="text-decoration: none; flex: 1; min-width: 140px; max-width: 200px;">
-            <i class="fa-solid fa-compass"></i> Discover Heros
-          </a>
-          <a href="/platform/?tab=docs_heros" class="modal-save-btn" style="text-decoration: none; flex: 1; min-width: 140px; max-width: 200px; background: var(--surface2); color: var(--text); border: 1px solid var(--border);">
-            <i class="fa-solid fa-book"></i> Heros Docs
-          </a>
-        </div>
-        <div class="about-version">
-          Built by &nbsp;·&nbsp; hudsonmathew2004@gmail.com
-        </div>
-      </div>
-          <div class="settings-panel" id="spanel-help">
-            <div class="settings-panel-title">Help & Support</div>
-            <div class="help-item">
-              <div class="help-icon"><i class="fa-regular fa-message"></i></div>
-              <div class="help-text-group">
-                <div class="help-title">Start a conversation</div>
-                <div class="help-desc">Type your message and press Enter or click send to chat with Heros.</div>
-              </div>
-            </div>
-            <div class="help-item">
-              <div class="help-icon"><i class="fa-solid fa-paperclip"></i></div>
-              <div class="help-text-group">
-                <div class="help-title">Attach files</div>
-                <div class="help-desc">Click the pin icon in the input field to upload and attach files for analysis.</div>
-              </div>
-            </div>
-            <div class="help-item">
-              <div class="help-icon"><i class="fa-solid fa-sliders"></i></div>
-              <div class="help-text-group">
-                <div class="help-title">Input Controls</div>
-                <div class="help-desc">Toggle Coding mode, Web Search, Fast mode, or switch AI models directly from the controls below the text box.</div>
-              </div>
-            </div>
-            <div class="help-item">
-              <div class="help-icon"><i class="fa-solid fa-microphone"></i></div>
-              <div class="help-text-group">
-                <div class="help-title">Voice input</div>
-                <div class="help-desc">Click the mic icon to dictate, or use "Talk to Baymax" for a full voice conversation.</div>
-              </div>
-            </div>
-            <div class="help-item">
-              <div class="help-icon"><i class="fa-solid fa-robot"></i></div>
-              <div class="help-text-group">
-                <div class="help-title">Switch AI model</div>
-                <div class="help-desc">Use the model selector to switch between Baymax 4.5 and Halo 3.6. Enable the Developer Option in Settings to access the Developer mode!</div>
-              </div>
-            </div>
-            <div class="help-item">
-              <div class="help-icon"><i class="fa-brands fa-chrome"></i></div>
-              <div class="help-text-group">
-                <div class="help-title">Zeno Chrome Extension</div>
-                <div class="help-desc">Install the Zeno Pro 3.5 extension to chat with Heros from anywhere on the web. Try Eco mode for fast text, or Plus mode for full NLP coding/search capabilities.</div>
-              </div>
-            </div>
-            <div class="help-item">
-              <div class="help-icon"><i class="fa-solid fa-chart-line"></i></div>
-              <div class="help-text-group">
-                <div class="help-title">AI Analyst (Infinsight)</div>
-                <div class="help-desc">Launch AI Analyst from your Settings > Apps &amp; Tools panel to upload data and get intelligent insights and graphs.</div>
-              </div>
-            </div>
-            <div class="help-item">
-              <div class="help-icon"><i class="fa-regular fa-envelope"></i></div>
-              <div class="help-text-group">
-                <div class="help-title">Contact support</div>
-                <div class="help-desc">Reach us directly at <strong style="color: var(--accent)">huddy1910@gmail.com</strong></div>
-              </div>
-            </div>
-
-            <!-- Send Support Message Form (Matching Platform) -->
-            <div class="modal-section" style="margin-top: 24px; padding: 18px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;">
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                <i class="fa-solid fa-envelope" style="color: var(--accent);"></i>
-                <h3 style="font-size: 1rem; font-weight: 600; color: #fff; margin: 0;">Send Support Message</h3>
-              </div>
-              <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;">
-                Need custom assistance, want to report a bug, or inquire about enterprise tiers? Send our engineering team a direct message.
-              </p>
-              
-              <div style="display: flex; flex-direction: column; gap: 12px;">
-                <div>
-                  <div class="modal-section-label" style="margin-bottom: 6px;"><i class="fa-solid fa-tag"></i> Category</div>
-                  <select id="home-help-category" class="auth-input" style="width: 100%; cursor: pointer;">
-                    <option value="General Support">General Support Inquiry</option>
-                    <option value="Bug Report">Bug Report</option>
-                    <option value="Quota Increase">Quota Increase Request</option>
-                    <option value="API Key Issue">API Key &amp; Authentication</option>
-                    <option value="Billing & Tier">Billing &amp; Enterprise Tier</option>
-                  </select>
-                </div>
-                <div>
-                  <div class="modal-section-label" style="margin-bottom: 6px;"><i class="fa-solid fa-heading"></i> Subject</div>
-                  <input type="text" id="home-help-subject" class="auth-input" placeholder="e.g. Issue with response formatting" style="width: 100%;" />
-                </div>
-                <div>
-                  <div class="modal-section-label" style="margin-bottom: 6px;"><i class="fa-solid fa-comment-dots"></i> Message</div>
-                  <textarea id="home-help-message" class="modal-textarea" rows="4" placeholder="Describe your issue or request in detail..." style="min-height: 90px;"></textarea>
-                </div>
-                <div style="margin-top: 4px;">
-                  <button type="button" class="modal-save-btn" id="home-help-submit-btn" onclick="sendHomeSupportMessage()">
-                    <i class="fa-solid fa-paper-plane"></i> Submit Support Message
-                  </button>
-                </div>
-              </div>
-            </div>
+          <div class="info-card">
+            <div class="info-card-head"><span><i class="fa-solid fa-key"></i> API Key Encryption</span></div>
+            <p>All API keys (Gemini, Groq, OpenRouter, Hugging Face) you provide are immediately encrypted locally using industry-standard AES-256 encryption before being stored on the server. The raw keys are <strong>never</strong> exposed back to the frontend browser, ensuring they cannot be intercepted by malicious extensions.</p>
           </div>
-          <!-- General panel -->
-          <div class="settings-panel active" id="spanel-general">
-            <div class="settings-panel-title">General</div>
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-circle-half-stroke"></i> Appearance</div>
-              <div class="theme-switcher">
-                <button class="theme-btn active" id="theme-dark-btn" onclick="setTheme('dark', this)">
-                  <div class="theme-preview dark-prev"></div>Dark
-                </button>
-                <button class="theme-btn" id="theme-light-btn" onclick="setTheme('light', this)">
-                  <div class="theme-preview light-prev"></div>Light
-                </button>
-              </div>
-            </div>
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-display"></i> Display</div>
-              <div class="toggle-row">
-                <span class="toggle-label">Auto-read AI responses aloud</span>
-                <button class="toggle" data-setting="autoReadResponses" onclick="toggleSetting('autoReadResponses')"></button>
-              </div>
-              <div class="toggle-row">
-                <span class="toggle-label">Compact message layout</span>
-                <button class="toggle" data-setting="compactLayout" onclick="toggleSetting('compactLayout')"></button>
-              </div>
-              <div class="toggle-row">
-                <span class="toggle-label">Code syntax highlighting</span>
-                <button class="toggle on" data-setting="syntaxHighlighting" onclick="toggleSetting('syntaxHighlighting')"></button>
-              </div>
-            </div>
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-comments"></i> Chat</div>
-              <div class="toggle-row">
-                <span class="toggle-label">Remember conversation history</span>
-                <button class="toggle" data-setting="rememberHistory" onclick="toggleSetting('rememberHistory')"></button>
-              </div>
-              <div class="toggle-row">
-                <span class="toggle-label">Enable developer model option</span>
-                <button class="toggle" data-setting="developerOption" onclick="toggleSetting('developerOption')"></button>
-              </div>
-            </div>
+          <div class="info-card">
+            <div class="info-card-head"><span><i class="fa-solid fa-memory"></i> Ephemeral Sessions (Zeno)</span></div>
+            <p>When you use "Temporary Chat" modes (like the Zeno Extension), your entire chat history is maintained completely in-memory during the active session. Once you close the session, the data is instantly discarded without ever touching our database.</p>
           </div>
-          <!-- Personalization panel -->
-          <div class="settings-panel" id="spanel-personalization">
-            <div class="settings-panel-title">Personalization</div>
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-regular fa-user"></i> Your Name</div>
-              <input class="auth-input" type="text" id="aboutName" placeholder="What should Heros call you?" style="width: 100%" />
-            </div>
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-briefcase"></i> What do you do?</div>
-              <textarea class="modal-textarea" id="aboutRole" style="min-height: 80px" placeholder="e.g. I'm a student studying computer science…"></textarea>
-            </div>
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-star"></i> Interests &amp; Goals</div>
-              <textarea class="modal-textarea" id="aboutInterests" placeholder="e.g. I enjoy gaming, graphic design…"></textarea>
-              <div class="field-hint">Heros uses this to give you more relevant responses.</div>
-            </div>
-            <div style="margin-top: 20px;">
-              <button class="modal-save-btn" onclick="savePersonalization()">
-                <i class="fa-solid fa-floppy-disk"></i> Save
-              </button>
-            </div>
+        </section>
+
+        <!-- Terms -->
+        <section class="settings-panel" id="spanel-terms">
+          <h2 class="settings-panel-title">Terms &amp; Policies</h2>
+          <p class="panel-lede">Review the legal terms, privacy standards, and data governance policies governing the Heros ecosystem.</p>
+          <div class="info-card">
+            <div class="info-card-head"><span><i class="fa-solid fa-scale-balanced"></i> Terms of Service</span></div>
+            <p>By using Heros, you agree to lawful and responsible use of our AI inference services, respect API rate limits, and maintain the confidentiality of your secret credentials.</p>
           </div>
-          <!-- Custom Instructions panel -->
-          <div class="settings-panel" id="spanel-instructions">
-            <div class="settings-panel-title">Custom Instructions</div>
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-gear"></i> Enable</div>
-              <div class="toggle-row">
-                <span class="toggle-label">Use custom instructions in conversations</span>
-                <button class="toggle on" data-setting="enableCustomInstructions" onclick="toggleSetting('enableCustomInstructions')"></button>
-              </div>
-            </div>
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-circle-info"></i> What should Heros know about you?</div>
-              <textarea class="modal-textarea" id="instructionContext" style="min-height: 120px" placeholder="e.g. I'm a beginner Python developer…"></textarea>
-              <div class="field-hint">This context is sent with every conversation if enabled.</div>
-            </div>
-            <div class="modal-section">
-              <div class="modal-section-label"><i class="fa-solid fa-robot"></i> How should Heros respond?</div>
-              <textarea class="modal-textarea" id="instructionBehavior" style="min-height: 120px" placeholder="e.g. Be friendly and encouraging…"></textarea>
-              <div class="field-hint">These are your personal AI behavior rules.</div>
-            </div>
-            <div style="margin-top: 20px;">
-              <button class="modal-save-btn" onclick="savePersonalization()">
-                <i class="fa-solid fa-floppy-disk"></i> Save
-              </button>
-            </div>
+          <div class="info-card">
+            <div class="info-card-head"><span><i class="fa-solid fa-shield-halved"></i> Privacy &amp; Zero Training</span></div>
+            <p>Heros enforces a strict zero model training policy on user chat prompts, API payloads, and uploaded documents. All third-party provider keys are encrypted locally using AES-256 before storage.</p>
           </div>
-
-          <!-- Developer Panel -->
-          <div class="settings-panel" id="spanel-developer">
-            <div class="settings-panel-title">Developer Platform</div>
-            <p style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; margin-bottom: 20px;">
-              Build intelligent applications, agents, and backend workflows with Heros high-speed fallback inference engine and developer tools.
-            </p>
-
-            <div class="modal-section" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                <div style="font-weight: 600; font-size: 0.95rem; color: #fff; display: flex; align-items: center; gap: 8px;">
-                  <i class="fa-solid fa-code" style="color: var(--accent);"></i> OpenAI SDK Compatible
-                </div>
-                <span style="font-size: 0.72rem; color: var(--accent); background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 4px; font-weight: 600;">v1/chat/completions</span>
-              </div>
-              <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 10px;">
-                Drop Heros base URL and secret API key straight into any official OpenAI Python or Node.js library without rewriting code.
-              </p>
-              <div style="background: var(--surface2, rgba(0,0,0,0.3)); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 0.78rem; color: var(--text-muted); word-break: break-all;">
-                POST https://hero-s-ai.alwaysdata.net/api/v1/chat/completions
-              </div>
-            </div>
-
-            <div class="modal-section" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-              <div style="font-weight: 600; font-size: 0.95rem; color: #fff; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <i class="fa-solid fa-microchip" style="color: var(--accent);"></i> Models &amp; Multimodal Endpoints
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
-                <div>• <strong>Baymax 4.5:</strong> High-speed reasoning with real-time web search retrieval grounding.</div>
-                <div>• <strong>Halo 2.0 / 3.6:</strong> Multimodal deep analytical thinking &amp; code generation.</div>
-                <div>• <strong>Speech Audio APIs:</strong> High-accuracy Whisper transcription (<code style="color:var(--accent);">/api/transcribe</code>) and TTS stream generation (<code style="color:var(--accent);">/api/tts</code>).</div>
-                <div>• <strong>Project Sandboxing:</strong> Organize secret keys, isolate environments, and monitor usage metrics.</div>
-              </div>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-              <a href="{% url 'platform' %}" class="modal-save-btn" style="text-decoration: none; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fa-solid fa-terminal"></i> Open Developer Platform
-              </a>
-              <a href="/platform/?tab=docs_heros" class="modal-save-btn" style="text-decoration: none; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--surface2); color: var(--text); border: 1px solid var(--border);">
-                <i class="fa-solid fa-book"></i> Browse Developer Documentation
-              </a>
-            </div>
+          <div class="info-card">
+            <div class="info-card-head"><span><i class="fa-solid fa-lock"></i> Data Governance &amp; Controls</span></div>
+            <p>You retain complete ownership over your data. You can perform real-time request log purges or permanently delete your developer account and workspaces at any time.</p>
           </div>
-
-          <!-- Terms & Policies Panel -->
-          <div class="settings-panel" id="spanel-terms">
-            <div class="settings-panel-title">Terms &amp; Policies</div>
-            <p style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; margin-bottom: 20px;">
-              Review the legal terms, privacy standards, and data governance policies governing the Heros ecosystem.
-            </p>
-
-            <div class="modal-section" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; margin-bottom: 14px;">
-              <div style="font-weight: 600; font-size: 0.95rem; color: #fff; display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                <i class="fa-solid fa-scale-balanced" style="color: var(--accent);"></i> Terms of Service
-              </div>
-              <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                By using Heros, you agree to lawful and responsible use of our AI inference services, respect API rate limits, and maintain the confidentiality of your secret credentials.
-              </p>
-            </div>
-
-            <div class="modal-section" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; margin-bottom: 14px;">
-              <div style="font-weight: 600; font-size: 0.95rem; color: #fff; display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                <i class="fa-solid fa-shield-halved" style="color: var(--accent);"></i> Privacy &amp; Zero Training
-              </div>
-              <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                Heros enforces a strict zero model training policy on user chat prompts, API payloads, and uploaded documents. All third-party provider keys are encrypted locally using AES-256 before storage.
-              </p>
-            </div>
-
-            <div class="modal-section" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-              <div style="font-weight: 600; font-size: 0.95rem; color: #fff; display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                <i class="fa-solid fa-lock" style="color: var(--accent);"></i> Data Governance &amp; Controls
-              </div>
-              <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                You retain complete ownership over your data. You can perform real-time request log purges or permanently delete your developer account and workspaces at any time.
-              </p>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-              <a href="{% url 'terms' %}" target="_blank" class="modal-save-btn" style="text-decoration: none; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fa-solid fa-arrow-up-right-from-square"></i> Read Full Terms &amp; Privacy Policy
-              </a>
-              <a href="/platform/?tab=terms" class="modal-save-btn" style="text-decoration: none; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--surface2); color: var(--text); border: 1px solid var(--border);">
-                <i class="fa-solid fa-file-shield"></i> View Platform Legal &amp; Acceptable Use
-              </a>
-            </div>
+          <div class="panel-actions">
+            <a href="{% url 'terms' %}" target="_blank" class="btn"><i class="fa-solid fa-arrow-up-right-from-square"></i> Read Full Terms &amp; Privacy Policy</a>
+            <a href="/platform/?tab=terms" class="btn btn-outline"><i class="fa-solid fa-file-shield"></i> View Platform Legal &amp; Acceptable Use</a>
           </div>
-        </div>
-      </div>
-    </div>
+        </section>
 
-    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     API KEYS MODAL
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-    <div class="modal-overlay" id="apiKeysModal">
-      <div class="modal-card">
-        <div class="modal-header">
-          <div class="modal-title">
-            <i class="fa-solid fa-key"></i> API Keys
-          </div>
-          <button class="modal-close" onclick="closeModal('apiKeysModal')">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="modal-section">
-            <div class="modal-section-label">
-              <i class="fa-solid fa-star"></i> Gemini API Key
-              <span class="required-badge">Required </span>
-            </div>
-            <input
-              class="auth-input"
-              type="password"
-              id="geminiApiKey"
-              placeholder="Enter your Gemini API key"
-              style="width: 100%"
-            />
-            <div class="field-hint">
-              <i class="fa-solid fa-circle-info"></i> Get your Gemini API key:
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                style="color: var(--accent)"
-                >Google AI Studio</a
-              >
-            </div>
-          </div>
-          <div class="modal-section">
-            <div class="modal-section-label">
-              <i class="fa-solid fa-route"></i> OpenRouter API Key
-              <span class="required-badge">Required </span>
-            </div>
-            <input
-              class="auth-input"
-              type="password"
-              id="openrouterApiKey"
-              placeholder="Enter your OpenRouter API key"
-              style="width: 100%"
-            />
-            <div class="field-hint">
-              <i class="fa-solid fa-circle-info"></i> Get your OpenRouter API
-              key:
-              <a
-                href="https://openrouter.ai/keys"
-                target="_blank"
-                style="color: var(--accent)"
-                >OpenRouter Dashboard</a
-              >
-            </div>
-          </div>
-          <div class="modal-section">
-            <div class="modal-section-label">
-              <i class="fa-solid fa-bolt"></i> Groq API Key
-              <span class="optional-badge">Optional</span>
-            </div>
-            <input
-              class="auth-input"
-              type="password"
-              id="groqApiKey"
-              placeholder="Enter your Groq API key for better performance (optional for fast experience)"
-              style="width: 100%"
-            />
-            <div class="field-hint">
-              <i class="fa-solid fa-circle-info"></i> Get your Groq API key:
-              <a
-                href="https://console.groq.com/keys"
-                target="_blank"
-                style="color: var(--accent)"
-                >Groq Console</a
-              >
-              {% comment %} <br /><em
-                >Note: Groq is used as a fallback model for enhanced
-                reliability.<br />Currently in development status</em
-              > {% endcomment %}
-            </div>
-          </div>
-          <div class="modal-section">
-            <div class="modal-section-label">
-              <i class="fa-solid fa-face-smile"></i> Hugging Face API Key
-              <span class="optional-badge">Optional</span>
-            </div>
-            <input
-              class="auth-input"
-              type="password"
-              id="huggingfaceApiKey"
-              placeholder="Enter your Hugging Face API key (optional for Halo model)"
-              style="width: 100%"
-            />
-            <div class="field-hint">
-              <i class="fa-solid fa-circle-info"></i> Get your Hugging Face token:
-              <a
-                href="https://huggingface.co/settings/tokens"
-                target="_blank"
-                style="color: var(--accent)"
-                >Hugging Face Settings</a
-              >
-            </div>
-          </div>
-          <div class="api-info-box">
-            <i class="fa-solid fa-shield-halved"></i>
+        <!-- About -->
+        <section class="settings-panel" id="spanel-about">
+          <h2 class="settings-panel-title">About Heros</h2>
+          <div class="about-hero">
+            <div class="about-logo-wrap"><img src="{% static 'images/Hero_ai.png' %}" alt="Heros" /></div>
             <div>
-              <strong>Your API keys are stored securely</strong><br /><span
-                style="font-size: 0.78rem; color: var(--text-muted)"
-                >All keys are encrypted and stored on the server — never exposed
-                to the browser.</span
-              >
+              <div class="about-title">Heros</div>
+              <div class="about-badge">Heros 5th Gen</div>
             </div>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button class="modal-save-btn" onclick="saveApiKeys()">
-            <i class="fa-solid fa-floppy-disk"></i> Save API Keys
-          </button>
-        </div>
+          <p class="about-desc">Heros is your intelligent personal assistant — built for code, creativity, conversations, and everything in between. Powered by Baymax 4.5 and Halo 3.6.</p>
+          <div class="about-coming-soon">
+            <h3><i class="fa-solid fa-wand-magic-sparkles"></i> What's New in Heros 5th Gen</h3>
+            <p><strong>Fast Mode Routing:</strong> Heros now dynamically races Gemini, Groq, and OpenRouter in parallel, returning the fastest available response to ensure you never face 503 downtimes.</p>
+            <p><strong>Zeno Pro 3.5 &amp; Zuno 2.1:</strong> Redesigned Zuno interface to match Heros ecosystem, with completely overhauled fallback models for Zeno Extension to prevent hallucinations.</p>
+            <p><strong>Deep Web Search:</strong> Upgraded scraping pipeline using DuckDuckGo, Wikipedia, Serply and Serpstack concurrently.</p>
+          </div>
+          <div class="panel-actions">
+            <a href="{% url 'landing' %}" class="btn"><i class="fa-solid fa-compass"></i> Discover Heros</a>
+            <a href="/platform/?tab=docs_heros" class="btn btn-outline"><i class="fa-solid fa-book"></i> Heros Docs</a>
+          </div>
+          <div class="about-version">Built with care by the Heros team &nbsp;·&nbsp; hudsonmathew2004@gmail.com &nbsp;·&nbsp; huddy1910@gmail.com</div>
+        </section>
+
+        <!-- Help -->
+        <section class="settings-panel" id="spanel-help">
+          <h2 class="settings-panel-title">Help &amp; Support</h2>
+          <div class="help-grid">
+            <div class="help-item"><div class="help-icon"><i class="fa-regular fa-message"></i></div><div class="help-text-group"><div class="help-title">Start a conversation</div><div class="help-desc">Type your message and press Enter or click send to chat with Heros.</div></div></div>
+            <div class="help-item"><div class="help-icon"><i class="fa-solid fa-paperclip"></i></div><div class="help-text-group"><div class="help-title">Attach files</div><div class="help-desc">Click the + button in the message box to upload and attach files for analysis.</div></div></div>
+            <div class="help-item"><div class="help-icon"><i class="fa-solid fa-sliders"></i></div><div class="help-text-group"><div class="help-title">Input Controls</div><div class="help-desc">Toggle Coding mode, Web Search, Fast mode, or switch AI models directly from the controls below the text box.</div></div></div>
+            <div class="help-item"><div class="help-icon"><i class="fa-solid fa-microphone"></i></div><div class="help-text-group"><div class="help-title">Voice input</div><div class="help-desc">Click the mic icon to dictate, or use "Talk" for a full voice conversation.</div></div></div>
+            <div class="help-item"><div class="help-icon"><i class="fa-solid fa-robot"></i></div><div class="help-text-group"><div class="help-title">Switch AI model</div><div class="help-desc">Use the model selector to switch between Baymax 4.5 and Halo 3.6. Enable the Developer Option in Settings to access the Developer mode!</div></div></div>
+            <div class="help-item"><div class="help-icon"><i class="fa-brands fa-chrome"></i></div><div class="help-text-group"><div class="help-title">Zeno Chrome Extension</div><div class="help-desc">Install the Zeno Pro 3.5 extension to chat with Heros from anywhere on the web. Try Eco mode for fast text, or Plus mode for full NLP coding/search capabilities.</div></div></div>
+            <div class="help-item"><div class="help-icon"><i class="fa-solid fa-chart-line"></i></div><div class="help-text-group"><div class="help-title">AI Analyst (Infinsight)</div><div class="help-desc">Open Infinsight from the sidebar (or Settings › Apps &amp; Tools) to upload data and get intelligent insights and graphs.</div></div></div>
+            <div class="help-item"><div class="help-icon"><i class="fa-regular fa-envelope"></i></div><div class="help-text-group"><div class="help-title">Contact support</div><div class="help-desc">Reach us directly at <strong>huddy1910@gmail.com</strong></div></div></div>
+          </div>
+
+          <div class="info-card support-form">
+            <div class="info-card-head"><span><i class="fa-solid fa-envelope"></i> Send Support Message</span></div>
+            <p>Need custom assistance, want to report a bug, or inquire about enterprise tiers? Send our engineering team a direct message.</p>
+            <div class="form-grid">
+              <div class="field">
+                <label class="modal-section-label" for="home-help-category"><i class="fa-solid fa-tag"></i> Category</label>
+                <select id="home-help-category" class="modal-select">
+                  <option value="General Support">General Support Inquiry</option>
+                  <option value="Bug Report">Bug Report</option>
+                  <option value="Quota Increase">Quota Increase Request</option>
+                  <option value="API Key Issue">API Key &amp; Authentication</option>
+                  <option value="Billing & Tier">Billing &amp; Enterprise Tier</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="modal-section-label" for="home-help-subject"><i class="fa-solid fa-heading"></i> Subject</label>
+                <input type="text" id="home-help-subject" class="auth-input" placeholder="e.g. Issue with response formatting" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="modal-section-label" for="home-help-message"><i class="fa-solid fa-comment-dots"></i> Message</label>
+              <textarea id="home-help-message" class="modal-textarea" rows="4" placeholder="Describe your issue or request in detail..."></textarea>
+            </div>
+            <div class="panel-actions"><button type="button" class="btn" id="home-help-submit-btn" onclick="sendHomeSupportMessage()"><i class="fa-solid fa-paper-plane"></i> Submit Support Message</button></div>
+          </div>
+        </section>
       </div>
     </div>
+  </div>
+{% endblock %}
 
-    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     ABOUT Heros MODAL
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-    <div class="modal-overlay" id="aboutHerosModal">
-      <div class="about-card">
-        <button
-          class="modal-close"
-          style="float: right; margin-bottom: 8px"
-          onclick="closeModal('aboutHerosModal')"
-        >
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-        <div class="about-logo-wrap">
-          <img src="{% static 'images/Hero_ai.png' %}" alt="Heros" />
-        </div>
-        <div class="about-title">Heros</div>
-        <div class="about-badge">Heros 5th Gen</div>
-        <p class="about-desc">
-          Heros is your intelligent personal assistant — built for code,
-          creativity, conversations, and everything in between. Powered by
-          Baymax 4.5 and Halo 3.6.
-        </p>
-                  <div class="about-coming-soon">
-          <i class="fa-solid fa-sparkles"></i>
-          <h3>What's New in Heros 5th Gen</h3>
-          <p style="margin-bottom: 10px;">
-            <strong>Fast Mode Routing:</strong> Heros now dynamically races Gemini, Groq, and OpenRouter in parallel, returning the fastest available response to ensure you never face 503 downtimes.
-          </p>
-          <p style="margin-bottom: 10px;">
-            <strong>Zeno Pro 3.5 & Zuno 2.1:</strong> Redesigned Zuno interface to match Heros ecosystem, with completely overhauled fallback models for Zeno Extension to prevent hallucinations.
-          </p>
-          <p>
-            <strong>Deep Web Search:</strong> Upgraded scraping pipeline using DuckDuckGo, Wikipedia, Serply and Serpstack concurrently.
-          </p>
-        </div>
-        <div style="margin-bottom: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-          <a href="{% url 'landing' %}" class="modal-save-btn" style="text-decoration: none; flex: 1; min-width: 140px; max-width: 200px;">
-            <i class="fa-solid fa-compass"></i> Discover Heros
-          </a>
-          <a href="/platform/?tab=docs_heros" class="modal-save-btn" style="text-decoration: none; flex: 1; min-width: 140px; max-width: 200px; background: var(--surface2); color: var(--text); border: 1px solid var(--border);">
-            <i class="fa-solid fa-book"></i> Heros Docs
-          </a>
-        </div>
-        <div class="about-version">
-          Built with â¤ï¸ by the Heros team &nbsp;·&nbsp; huddy1910@gmail.com
-        </div>
-      </div>
-    </div>
-
-    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     HELP MODAL
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-    <div class="modal-overlay" id="helpModal">
-      <div class="help-card">
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-          "
-        >
-          <div class="modal-title">
-            <i class="fa-regular fa-circle-question"></i> Help & Support
-          </div>
-          <button class="modal-close" onclick="closeModal('helpModal')">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <div class="help-item">
-          <div class="help-icon"><i class="fa-regular fa-message"></i></div>
-          <div class="help-text-group">
-            <div class="help-title">Start a conversation</div>
-            <div class="help-desc">
-              Type your message and press Enter or click send to chat with
-              Heros.
-            </div>
-          </div>
-        </div>
-        <div class="help-item">
-          <div class="help-icon"><i class="fa-solid fa-paperclip"></i></div>
-          <div class="help-text-group">
-            <div class="help-title">Attach files</div>
-            <div class="help-desc">
-              Click the pin icon in the input field to upload and attach files for analysis.
-            </div>
-          </div>
-        </div>
-        <div class="help-item">
-          <div class="help-icon"><i class="fa-solid fa-sliders"></i></div>
-          <div class="help-text-group">
-            <div class="help-title">Input Controls</div>
-            <div class="help-desc">
-              Toggle Coding mode, Web Search, Fast mode, or switch AI models directly from the controls below the text box.
-            </div>
-          </div>
-        </div>
-        <div class="help-item">
-          <div class="help-icon"><i class="fa-solid fa-microphone"></i></div>
-          <div class="help-text-group">
-            <div class="help-title">Voice input</div>
-            <div class="help-desc">
-              Click the mic icon to dictate, or use "Talk to Baymax" for a full
-              voice conversation.
-            </div>
-          </div>
-        </div>
-        <div class="help-item">
-          <div class="help-icon"><i class="fa-solid fa-robot"></i></div>
-          <div class="help-text-group">
-            <div class="help-title">Switch AI model</div>
-            <div class="help-desc">
-              Use the model selector to switch between Baymax 4.5 and Halo 3.6. Enable the Developer Option in Settings to access the Developer mode!
-            </div>
-          </div>
-        </div>
-        <div class="help-item">
-          <div class="help-icon"><i class="fa-brands fa-chrome"></i></div>
-          <div class="help-text-group">
-            <div class="help-title">Zeno Chrome Extension</div>
-            <div class="help-desc">
-              Install the Zeno Pro 3.5 extension to chat with Heros from anywhere on the web. Try Eco mode for fast text, or Plus mode for full NLP coding/search capabilities.
-            </div>
-          </div>
-        </div>
-        <div class="help-item">
-          <div class="help-icon"><i class="fa-solid fa-chart-line"></i></div>
-          <div class="help-text-group">
-            <div class="help-title">AI Analyst (Infinsight)</div>
-            <div class="help-desc">
-              Launch AI Analyst from your Settings > Apps &amp; Tools panel to upload data and get intelligent insights and graphs.
-            </div>
-          </div>
-        </div>
-        <div class="help-item">
-          <div class="help-icon"><i class="fa-regular fa-envelope"></i></div>
-          <div class="help-text-group">
-            <div class="help-title">Contact support</div>
-            <div class="help-desc">
-              Reach us at
-              <strong style="color: var(--accent)">huddy1910@gmail.com</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <script>
-      // Inline Voice Chat UI Toggle
-      function toggleInlineVoiceChat() {
-        const inputBox = document.querySelector('.input-box');
-        const isInlineActive = inputBox.classList.toggle('inline-voice-active');
-        
-        const chatInputWrap = document.getElementById('chatInputWrap');
-        const inlineVoiceUI = document.getElementById('inlineVoiceUI');
-        const fastModeBtn = document.getElementById('fastModeBtn');
-        const muteBtn = document.getElementById('muteBtn');
-        const sendMicBtn = document.getElementById('sendMicBtn');
-        const searchToggleBtn = document.getElementById('searchToggleBtn');
-        const codeToggleBtn = document.getElementById('codeToggleBtn');
-        const modelSelectGroup = document.querySelector('.model-select-group');
-        const talkTooltip = document.getElementById('talkTooltip');
-        const talkText = document.getElementById('talkText');
-        
-        const voiceCanvas = document.getElementById('voiceCanvas');
-        const voiceTranscript = document.getElementById('voiceTranscript');
-        
-        const inlineCanvasWrap = document.getElementById('inlineVoiceCanvasWrap');
-        const inlineTranscriptWrap = document.getElementById('inlineVoiceTranscriptWrap');
-        const origCanvasContainer = document.querySelector('.ball-container');
-        const origTranscriptContainer = document.querySelector('.voice-modal');
-        const voiceStatus = document.getElementById('voiceStatus');
-
-        if (isInlineActive) {
-          inputBox.style.minHeight = inputBox.getBoundingClientRect().height + 'px';
-          inputBox.style.width = inputBox.getBoundingClientRect().width + 'px';
-          
-          if (chatInputWrap) chatInputWrap.style.display = 'none';
-          if (fastModeBtn) fastModeBtn.style.display = 'none';
-          if (muteBtn) muteBtn.style.display = 'none';
-          if (sendMicBtn) sendMicBtn.style.display = 'none';
-          if (codeToggleBtn) codeToggleBtn.style.display = 'none';
-          if (modelSelectGroup) modelSelectGroup.style.display = 'none';
-          
-          if (inlineVoiceUI) inlineVoiceUI.style.display = 'flex';
-          
-          if (talkTooltip) talkTooltip.innerText = 'Say Bye to';
-          if (talkText) talkText.innerHTML = '<i class="fa-solid fa-xmark"></i> Close';
-          
-          if (voiceCanvas && inlineCanvasWrap) {
-            // Calculate input-box height and make the canvas circle fill it
-            const boxHeight = inputBox.getBoundingClientRect().height;
-            const canvasSize = boxHeight;
-            
-            inlineCanvasWrap.style.display = 'flex';
-            inlineCanvasWrap.style.alignItems = 'center';
-            inlineCanvasWrap.style.justifyContent = 'center';
-            inlineCanvasWrap.style.width = canvasSize + 'px';
-            inlineCanvasWrap.style.height = canvasSize + 'px';
-            
-            inlineCanvasWrap.appendChild(voiceCanvas);
-            voiceCanvas.style.width = canvasSize + 'px';
-            voiceCanvas.style.height = canvasSize + 'px';
-            voiceCanvas.style.transform = '';
-            voiceCanvas.style.transformOrigin = '';
-          }
-          if (voiceTranscript && inlineTranscriptWrap) {
-            inlineTranscriptWrap.appendChild(voiceTranscript);
-            voiceTranscript.classList.add('inline-mode');
-          }
-          
-          if (typeof toggleVoiceSession === 'function') {
-            if (typeof voiceActive !== 'undefined' && !voiceActive) {
-              toggleVoiceSession();
-            }
-          }
-        } else {
-          inputBox.style.minHeight = '';
-          inputBox.style.height = '';
-          inputBox.style.width = '';
-          
-          if (chatInputWrap) chatInputWrap.style.display = 'flex';
-          if (fastModeBtn) fastModeBtn.style.display = 'flex';
-          if (muteBtn) muteBtn.style.display = 'flex';
-          if (sendMicBtn) sendMicBtn.style.display = 'flex';
-          if (searchToggleBtn) searchToggleBtn.style.display = 'block';
-          if (codeToggleBtn) codeToggleBtn.style.display = 'block';
-          if (modelSelectGroup) modelSelectGroup.style.display = 'flex';
-          
-          if (inlineVoiceUI) inlineVoiceUI.style.display = 'none';
-          
-          if (talkTooltip) talkTooltip.innerText = 'Say Hello to';
-          if (talkText) talkText.innerHTML = '<i class="fa-solid fa-microphone-lines"></i> Talk';
-          
-          if (voiceCanvas && origCanvasContainer) {
-            origCanvasContainer.appendChild(voiceCanvas);
-            voiceCanvas.style.width = '';
-            voiceCanvas.style.height = '';
-            voiceCanvas.style.transform = '';
-            voiceCanvas.style.transformOrigin = '';
-          }
-          if (inlineCanvasWrap) {
-            inlineCanvasWrap.style.display = 'none';
-            inlineCanvasWrap.style.width = '';
-            inlineCanvasWrap.style.height = '';
-          }
-          if (voiceTranscript && voiceStatus && voiceStatus.parentNode) {
-            voiceStatus.parentNode.insertBefore(voiceTranscript, voiceStatus);
-            voiceTranscript.classList.remove('inline-mode');
-          }
-          
-          if (typeof stopVoiceSession === 'function') {
-            if (typeof voiceActive !== 'undefined' && voiceActive) {
-              stopVoiceSession();
-            }
-          }
-        }
-      }
-    </script>
-
-    <script src="{% static 'js/app.js' %}" defer></script>
-  </body>
-</html>
-
+{% block scripts %}
+  <script src="{% static 'heros/js/chat.js' %}" defer></script>
+{% endblock %}

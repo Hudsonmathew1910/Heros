@@ -1,0 +1,14 @@
+{% comment %}Feature switcher shared by Heros Chat / Infinsight / Zuno — like Codex · Claude Code · Cowork.{% endcomment %}
+<nav class="sb-nav" aria-label="Heros features">
+  {% if active != "chat" %}
+  <a href="{% url 'home' %}" class="sb-item" data-tip="Chat" data-tip-pos="right">
+    <i class="fa-regular fa-comment"></i><span class="sb-label">Chat</span>
+  </a>
+  {% endif %}
+  <a href="{% url 'infinsight_home' %}" class="sb-item{% if active == 'infinsight' %} active{% endif %}" data-tip="Infinsight" data-tip-pos="right">
+    <i class="fa-solid fa-chart-simple"></i><span class="sb-label">Infinsight</span><span class="sb-meta">Data analyst</span>
+  </a>
+  <a href="{% url 'zuno_index' %}" class="sb-item{% if active == 'zuno' %} active{% endif %}" data-tip="Zuno" data-tip-pos="right">
+    <i class="fa-solid fa-music"></i><span class="sb-label">Zuno</span><span class="sb-meta">Music</span>
+  </a>
+</nav>
