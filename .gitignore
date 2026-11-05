@@ -25,7 +25,9 @@ Scripts/
 logs/
 db.sqlite3
 db.sqlite3-journal
-staticfiles/   # collectstatic output — never commit this
+# collectstatic output — built on the server by `python manage.py collectstatic`, never commit
+# (a comment on the same line as a rule breaks the rule in .gitignore)
+staticfiles/
 mediafiles/
 media/
 
