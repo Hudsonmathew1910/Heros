@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /platform/
+Disallow: /zuno/
+Disallow: /auth/
+
+Sitemap: {{ site_url }}/sitemap.xml
