@@ -1,4 +1,4 @@
-# Heros 🤖
+# Heros 
 
 **A production-grade, Django-powered AI assistant platform** featuring intelligent multi-model routing, voice capabilities, RAG analytics, and enterprise-grade security.
 
